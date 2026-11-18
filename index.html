@@ -123,6 +123,7 @@ select{font-family:Inter,sans-serif}
 .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em}
 .pill-w{background:rgba(47,191,113,.17);color:var(--win)}
 .pill-l{background:rgba(229,72,77,.17);color:var(--loss)}
+.pill-n{background:rgba(140,151,168,.18);color:var(--dim)}
 .scroll{overflow-x:auto;margin:0 -14px;padding:0 14px}
 
 /* ---------- gauge ---------- */
@@ -220,8 +221,8 @@ svg{display:block;width:100%;height:auto}
     <h2>Rezumat</h2>
     <div class="grid">
       <div class="kv"><div class="k">P/L total</div><div class="v mono" id="jPl">—</div></div>
-      <div class="kv"><div class="k">Sesiuni reușite</div><div class="v mono" id="jWr">—</div></div>
-      <div class="kv"><div class="k">Reușite / eșuate</div><div class="v mono sm" id="jWl">—</div></div>
+      <div class="kv"><div class="k">Sesiuni pe plus</div><div class="v mono" id="jWr">—</div></div>
+      <div class="kv"><div class="k">Pe plus / pe minus</div><div class="v mono sm" id="jWl">—</div></div>
       <div class="kv"><div class="k">Capital inițial</div><div class="v mono sm" id="jStart">—</div></div>
     </div>
   </div>
@@ -634,7 +635,10 @@ function renderNext(r){
       <button class="btn btn-w" id="bW" data-act="win">CÂȘTIG</button>
       <button class="btn btn-l" id="bL" data-act="loss">PIERDERE</button>
     </div>
-  </div>`;
+  </div>` + (r.rows.filter(x=>x.result).length
+    ? `<button class="btn btn-g" data-act="closeEarly" style="width:100%;margin:-2px 0 12px">
+         Închide sesiunea aici și salveaz-o (${sgn(r.pl)})</button>`
+    : '');
 }
 
 function renderTarget(r){
@@ -690,13 +694,13 @@ function renderJournal(){
   }
   const start = ss[0].start;
   const pl = ss.reduce((a,s)=>a+(s.end-s.start),0);
-  const won = ss.filter(s=>s.status==='target').length;
+  const won = ss.filter(s=>s.end>s.start).length;
   $('#jPl').innerHTML = `<span class="${cls(pl)}">${sgn(pl)}</span>`;
   $('#jWr').textContent = pct(won/ss.length,1);
   $('#jWl').textContent = won+' / '+(ss.length-won);
   $('#jStart').textContent = money(start);
 
-  const LBL = { target:['C','w'], stopped:['SL','l'], liquidated:['LIQ','l'], exhausted:['X','l'] };
+  const LBL = { target:['ȚINTĂ','w'], stopped:['STOP','l'], liquidated:['LIQ','l'], exhausted:['X','l'], closed:['MANUAL','n'] };
   let h = `<thead><tr><th>#</th><th>Data</th><th>Start</th><th>C/P</th><th>Final</th><th>P/L</th><th>Rez.</th></tr></thead><tbody>`;
   for (const s of [...ss].reverse()){
     const d = new Date(s.date), p = s.end-s.start, L = LBL[s.status]||['?','l'];
@@ -899,19 +903,20 @@ function undo(){
   const c=cur(); if (!c.trades.length) return note('Nimic de șters');
   c.trades.pop(); dbSet('current', c); render();
 }
-function logSession(){
+function logSession(manual){
   const r=calc(), c=cur(), st=S.settings;
   if (!c.trades.length) return note('Sesiunea e goală');
+  const status = manual && r.status==='open' ? 'closed' : r.status;
   S.sessions.push({
     n:c.n, date:Date.now(), start:c.startBalance, end:r.balance,
     N:st.N, K:st.K, payout:st.payout, slPct:st.slPct,
     goal:r.goal, stop:r.stopAt, wins:r.wins, losses:r.losses,
-    status:r.status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret}))
+    status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret}))
   });
   S.current = { startBalance:r.balance, trades:[], n:c.n+1 };   // auto-copy balance
   S.settings.cap = r.balance;
   dbSet('log',{sessions:S.sessions}); dbSet('current',S.current); dbSet('settings',S.settings);
-  note('Sesiune înregistrată'); render();
+  note(manual ? 'Închisă și salvată' : 'Sesiune înregistrată'); render();
 }
 let resetArm=false;
 function resetSession(){
@@ -968,7 +973,7 @@ function doWipe(){
 const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
-  undo, reset:resetSession, log:logSession,
+  undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
   export:doExport, import:doImport,
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
@@ -1034,9 +1039,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 4 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 5 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 4 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 5 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
