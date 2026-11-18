@@ -92,6 +92,10 @@ section.on{display:block}
 .hint{font-size:11.5px;color:var(--faint);margin-bottom:12px}
 .edit{display:flex;gap:8px;align-items:center;margin-bottom:12px}
 .edit label{font-size:11.5px;color:var(--dim);white-space:nowrap}
+.edit input{flex:1;min-width:0}
+.btn-copy{flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 13px;font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap;transition:background .15s}
+.btn-copy:active{filter:brightness(.85)}
+.btn-copy.done{background:rgba(47,191,113,.18);border-color:rgba(47,191,113,.45);color:var(--win)}
 input,select{
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);
   border-radius:9px;padding:8px 10px;font:600 14px 'JetBrains Mono',monospace;
@@ -630,6 +634,7 @@ function renderNext(r){
     <div class="edit">
       <label>Miză reală</label>
       <input id="iStake" type="number" step="0.01" value="${row.suggested.toFixed(2)}">
+      <button class="btn-copy" id="bCopy" data-act="copyStake">Copiază</button>
     </div>
     <div class="btns">
       <button class="btn btn-w" id="bW" data-act="win">CÂȘTIG</button>
@@ -974,6 +979,21 @@ const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
+  copyStake: async (btn)=>{
+    const inp=$('#iStake'); if (!inp) return;
+    const v=String(inp.value||'').trim();
+    if (!v) return note('Nicio valoare de copiat');
+    let done=false;
+    try{ if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(v); done=true; } }catch(e){}
+    if (!done){ try{ inp.focus(); inp.select(); done = !!(document.execCommand && document.execCommand('copy')); }catch(e){} }
+    if (done){
+      btn.textContent='Copiat'; btn.classList.add('done'); note('Miz\u0103 copiat\u0103: '+v);
+      setTimeout(()=>{ try{ btn.textContent='Copiaz\u0103'; btn.classList.remove('done'); }catch(e){} },1500);
+    } else {
+      try{ inp.focus(); inp.select(); }catch(e){}
+      note('Selectat\u0103 \u2014 copiaz-o manual');
+    }
+  },
   export:doExport, import:doImport,
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
@@ -1039,9 +1059,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 5 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 6 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 5 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 6 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
