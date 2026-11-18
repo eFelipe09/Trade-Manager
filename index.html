@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e13">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trade Manager">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" type="image/png">
+<title>Trade Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0e13; --panel:#141922; --panel2:#1b212c; --line:#262e3b;
+  --txt:#e8ecf2; --dim:#8c97a8; --faint:#5a6474;
+  --win:#2fbf71; --loss:#e5484d; --warn:#f0a035; --accent:#4c8dff;
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  font-size:15px; line-height:1.45;
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));
+  overscroll-behavior-y:contain;
+}
+.wrap{padding-left:calc(14px + env(safe-area-inset-left));padding-right:calc(14px + env(safe-area-inset-right))}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px}
+
+/* ---------- header ---------- */
+header{
+  position:sticky;top:0;z-index:20;background:rgba(11,14,19,.93);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top);
+}
+.hd{display:flex;align-items:center;gap:12px;padding:12px 0 10px}
+.bal{flex:1;min-width:0}
+.bal .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.bal .val{font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.pl{text-align:right;font-size:13px;font-weight:600}
+.pl .sub{display:block;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:2px}
+.up{color:var(--win)} .down{color:var(--loss)} .flat{color:var(--dim)}
+
+nav{display:flex;gap:2px;padding-bottom:9px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  flex:1;white-space:nowrap;background:transparent;border:0;color:var(--dim);
+  font:600 13px Inter,sans-serif;padding:7px 11px;border-radius:9px;cursor:pointer;
+}
+nav button.on{background:var(--panel2);color:var(--txt)}
+
+/* ---------- blocks ---------- */
+section{display:none;padding-top:15px}
+section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card > h2{
+  margin:0 0 11px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);font-weight:700;
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.kv{background:var(--panel2);border-radius:10px;padding:9px 11px}
+.kv .k{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kv .v{font-size:17px;font-weight:700;margin-top:1px}
+.kv .v.sm{font-size:14.5px}
+
+/* ---------- banner ---------- */
+.banner{border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13.5px;font-weight:500;display:flex;gap:10px;align-items:flex-start}
+.banner b{display:block;font-size:14px;margin-bottom:2px}
+.banner .ic{font-size:17px;line-height:1.2}
+.b-ok{background:rgba(47,191,113,.11);border:1px solid rgba(47,191,113,.3);color:#9fe8c0}
+.b-warn{background:rgba(240,160,53,.11);border:1px solid rgba(240,160,53,.32);color:#f5cf9b}
+.b-bad{background:rgba(229,72,77,.11);border:1px solid rgba(229,72,77,.33);color:#f3a9ab}
+.b-info{background:rgba(76,141,255,.1);border:1px solid rgba(76,141,255,.28);color:#aecaff}
+
+/* ---------- next trade ---------- */
+.next{background:linear-gradient(160deg,#1a2130,#141922);border:1px solid #2c3647;border-radius:var(--r);padding:15px;margin-bottom:12px}
+.next .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.next .no{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.next .req{font-size:11.5px;color:var(--dim)}
+.stake{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.stake .amt{font-size:33px;font-weight:700;letter-spacing:-.025em}
+.stake .pct{font-size:13px;color:var(--dim);font-weight:600}
+.hint{font-size:11.5px;color:var(--faint);margin-bottom:12px}
+.edit{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.edit label{font-size:11.5px;color:var(--dim);white-space:nowrap}
+input,select{
+  background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:9px;padding:8px 10px;font:600 14px 'JetBrains Mono',monospace;
+  width:100%;min-width:0;
+}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+select{font-family:Inter,sans-serif}
+.btns{display:flex;gap:9px}
+.btn{
+  flex:1;border:0;border-radius:11px;padding:13px 10px;cursor:pointer;
+  font:700 15px Inter,sans-serif;color:#fff;transition:filter .12s;
+}
+.btn:active{filter:brightness(.86)}
+.btn-w{background:var(--win)} .btn-l{background:var(--loss)}
+.btn-g{background:var(--panel2);color:var(--txt);border:1px solid var(--line);font-size:13.5px;padding:10px}
+.btn-a{background:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* ---------- tables ---------- */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{
+  text-align:right;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--faint);font-weight:700;padding:0 6px 7px;border-bottom:1px solid var(--line);
+}
+.tbl th:first-child,.tbl td:first-child{text-align:left;padding-left:2px}
+.tbl td{text-align:right;padding:7px 6px;border-bottom:1px solid rgba(38,46,59,.5)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .muted{color:var(--faint)}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em}
+.pill-w{background:rgba(47,191,113,.17);color:var(--win)}
+.pill-l{background:rgba(229,72,77,.17);color:var(--loss)}
+.scroll{overflow-x:auto;margin:0 -14px;padding:0 14px}
+
+/* ---------- gauge ---------- */
+.gauge{margin:6px 0 2px}
+.gbar{height:9px;background:var(--panel2);border-radius:20px;position:relative;overflow:visible}
+.gfill{height:100%;border-radius:20px;transition:width .3s}
+.gmark{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--warn);border-radius:2px}
+.glbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:6px;font-weight:600}
+.big{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.05}
+.big .u{font-size:17px;color:var(--dim);font-weight:600}
+
+.empty{text-align:center;color:var(--faint);font-size:13px;padding:26px 10px}
+.note{font-size:12px;color:var(--faint);line-height:1.5;margin-top:9px}
+.note b{color:var(--dim)}
+.row2{display:flex;gap:9px}.row2>*{flex:1;min-width:0}
+.fld{margin-bottom:10px}
+.fld label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:4px}
+textarea{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:9px;padding:9px;font:500 11.5px 'JetBrains Mono',monospace;min-height:80px;resize:vertical;
+}
+svg{display:block;width:100%;height:auto}
+.toast{
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(90px);
+  background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+  padding:10px 17px;font-size:13.5px;font-weight:600;z-index:60;
+  transition:transform .26s cubic-bezier(.2,.9,.3,1);box-shadow:0 10px 30px rgba(0,0,0,.45);
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.sync{font-size:10.5px;color:var(--faint);text-align:center;padding:4px 0 0}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="hd">
+    <div class="bal">
+      <div class="lbl">Balanță</div>
+      <div class="val mono" id="hBal">—</div>
+    </div>
+    <div class="pl">
+      <span class="sub">Sesiune <span id="hSess">1</span></span>
+      <span class="mono" id="hPl">—</span>
+    </div>
+  </div>
+  <nav>
+    <button class="on" data-t="s" data-act="tab">Sesiune</button>
+    <button data-t="j" data-act="tab">Jurnal</button>
+    <button data-t="a" data-act="tab">Analiză</button>
+    <button data-t="c" data-act="tab">Setări</button>
+  </nav>
+</div></header>
+
+<div class="wrap">
+
+<!-- ================= SESIUNE ================= -->
+<section class="on" id="tab-s">
+  <div id="banner"></div>
+  <div id="nextBox"></div>
+
+  <div class="card">
+    <h2>Țintă sesiune</h2>
+    <div class="grid">
+      <div class="kv"><div class="k">Capital final</div><div class="v mono" id="tGoal">—</div></div>
+      <div class="kv"><div class="k">Câștig cont</div><div class="v mono up" id="tGain">—</div></div>
+      <div class="kv"><div class="k">Stop loss</div><div class="v mono down" id="tStop">—</div></div>
+      <div class="kv"><div class="k">Pierderi max.</div><div class="v mono" id="tMaxL">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tranzacții</h2>
+    <div class="scroll"><table class="tbl" id="trTbl"></table></div>
+    <div class="btns" style="margin-top:12px">
+      <button class="btn btn-g" id="bUndo" data-act="undo">Șterge ultima</button>
+      <button class="btn btn-g" id="bReset" data-act="reset">Sesiune nouă</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Obiectiv zilnic</h2>
+    <div class="row2" style="margin-bottom:11px">
+      <div class="fld" style="margin:0"><label>Țintă profit</label><input id="dgVal" type="number" step="0.1"></div>
+      <div class="fld" style="margin:0"><label>Format</label><select id="dgFmt"><option value="pct">%</option><option value="abs">sumă</option></select></div>
+    </div>
+    <div class="grid g3">
+      <div class="kv"><div class="k">Sesiuni nec.</div><div class="v mono sm" id="dgSess">—</div></div>
+      <div class="kv"><div class="k">Câștig cont</div><div class="v mono sm" id="dgGain">—</div></div>
+      <div class="kv"><div class="k">Capital final</div><div class="v mono sm" id="dgCap">—</div></div>
+    </div>
+  </div>
+</section>
+<!-- ================= JURNAL ================= -->
+<section id="tab-j">
+  <div class="card">
+    <h2>Rezumat</h2>
+    <div class="grid">
+      <div class="kv"><div class="k">P/L total</div><div class="v mono" id="jPl">—</div></div>
+      <div class="kv"><div class="k">Sesiuni reușite</div><div class="v mono" id="jWr">—</div></div>
+      <div class="kv"><div class="k">Reușite / eșuate</div><div class="v mono sm" id="jWl">—</div></div>
+      <div class="kv"><div class="k">Capital inițial</div><div class="v mono sm" id="jStart">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Curba de capital</h2>
+    <div id="eqChart"></div>
+  </div>
+
+  <div class="card">
+    <h2>Sesiuni</h2>
+    <div class="scroll"><table class="tbl" id="logTbl"></table></div>
+  </div>
+</section>
+
+<!-- ================= ANALIZĂ ================= -->
+<section id="tab-a">
+  <div class="card">
+    <h2>Rata ta de câștig vs. prag de rentabilitate</h2>
+    <div class="big mono" id="aWr">—<span class="u"> %</span></div>
+    <div class="note" id="aWrSub" style="margin-top:2px"></div>
+    <div class="gauge">
+      <div class="gbar"><div class="gfill" id="aFill" style="width:0%"></div><div class="gmark" id="aMark" style="left:52%"></div></div>
+      <div class="glbl"><span>0%</span><span id="aBeLbl">prag —</span><span>100%</span></div>
+    </div>
+    <div class="note" id="aVerdict"></div>
+  </div>
+
+  <div class="card">
+    <h2>Tranzacții înregistrate</h2>
+    <div class="grid g3">
+      <div class="kv"><div class="k">Total</div><div class="v mono" id="aN">—</div></div>
+      <div class="kv"><div class="k">Câștig</div><div class="v mono up" id="aW">—</div></div>
+      <div class="kv"><div class="k">Pierdere</div><div class="v mono down" id="aL">—</div></div>
+    </div>
+    <div class="note" id="aConf"></div>
+  </div>
+
+  <div class="card">
+    <h2>Risc la rata ta actuală</h2>
+    <div class="grid">
+      <div class="kv"><div class="k">Așteptare / sesiune</div><div class="v mono" id="rEv">—</div></div>
+      <div class="kv"><div class="k">Sesiuni reușite</div><div class="v mono" id="rOk">—</div></div>
+      <div class="kv"><div class="k">Cea mai rea sesiune</div><div class="v mono down" id="rWorst">—</div></div>
+      <div class="kv"><div class="k">Drawdown maxim</div><div class="v mono down" id="rDd">—</div></div>
+    </div>
+    <div class="note">Calculat prin enumerarea <b>tuturor</b> traseelor posibile de sesiune la rata ta de câștig măsurată — nu estimare.</div>
+  </div>
+
+  <div class="card">
+    <h2>Risc de ruină</h2>
+    <div class="scroll"><table class="tbl" id="ruinTbl"></table></div>
+    <div class="note">Probabilitatea de a scădea sub 10% din capital, dacă joci numărul respectiv de sesiuni la rata ta actuală. 12.000 de simulări per linie.</div>
+  </div>
+
+  <div class="card">
+    <h2>Escaladarea mizei într-o sesiune pierzătoare</h2>
+    <div id="escChart"></div>
+    <div class="note" id="escNote"></div>
+  </div>
+</section>
+
+<!-- ================= SETĂRI ================= -->
+<section id="tab-c">
+  <div class="card">
+    <h2>Parametri</h2>
+    <div class="row2">
+      <div class="fld"><label>Capital</label><input id="pCap" type="number" step="0.01"></div>
+      <div class="fld"><label>Monedă</label><select id="pCur">
+        <option value="EUR">EUR €</option><option value="USD">USD $</option><option value="RON">RON lei</option>
+        <option value="GBP">GBP £</option><option value="CHF">CHF</option></select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>Tranzacții / sesiune</label><input id="pN" type="number" min="2" max="30" step="1"></div>
+      <div class="fld"><label>Câștiguri țintă</label><input id="pK" type="number" min="1" max="20" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>Payout %</label><input id="pPay" type="number" step="0.5"></div>
+      <div class="fld"><label>Stop loss %</label><input id="pSl" type="number" step="1"></div>
+    </div>
+    <div class="note" id="cNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Stop loss</h2>
+    <div class="banner b-info" style="margin:0 0 10px">
+      <span class="ic">&#9211;</span>
+      <span><b>Stop loss activ</b>Sesiunea se oprește când balanța atinge pragul. În Excel acest prag era doar o alertă afișată — aici oprește efectiv sesiunea.</span>
+    </div>
+    <div class="fld" style="margin:0">
+      <label>Comportament</label>
+      <select id="pSlMode">
+        <option value="stop">Oprește sesiunea la prag (recomandat)</option>
+        <option value="alert">Doar avertizează, ca în Excel</option>
+      </select>
+    </div>
+    <div class="note" id="slNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Date</h2>
+    <div class="btns" style="margin-bottom:10px">
+      <button class="btn btn-g" id="bExport" data-act="export">Copiază backup</button>
+      <button class="btn btn-g" id="bImportT" data-act="importToggle">Importă…</button>
+    </div>
+    <div id="importBox" style="display:none">
+      <div class="fld"><label>Lipește backup-ul aici</label><textarea id="impTxt" placeholder='{"sessions":[...],"settings":{...}}'></textarea></div>
+      <div class="btns">
+        <button class="btn btn-a" id="bImport" data-act="import">Importă</button>
+        <button class="btn btn-g" id="bImportX" data-act="importCancel">Anulează</button>
+      </div>
+    </div>
+    <div class="note">Datele stau pe telefonul tău, în aplicație. Nu pleacă nicăieri și nimeni altcineva nu le vede — dar nici nu se sincronizează între telefon și calculator. Folosește <b>Copiază backup</b> ca să le muți sau să le păstrezi.</div>
+  </div>
+
+  <div class="card">
+    <h2>Zona periculoasă</h2>
+    <button class="btn btn-g" id="bWipe" data-act="wipe" style="color:var(--loss)">Șterge tot jurnalul</button>
+  </div>
+  <div class="sync" id="syncMsg"></div>
+  <div class="sync" id="hb">—</div>
+</section>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* ============================================================
+   ENGINE — direct port of the `Algo` sheet
+   M[t][j] = capital multiplier still required from state
+   (t trades used, j wins). Verified against Algo!N2:Q12.
+   ============================================================ */
+const INF = Infinity;
+function buildMatrix(N, K, R){
+  const M = new Map(), key = (t,j) => t+':'+j;
+  for (let t=N; t>=0; t--) for (let j=K; j>=0; j--){
+    let v;
+    if (j >= K) v = 1;
+    else if (K-j > N-t) v = INF;
+    else if (K-j === N-t) v = Math.pow(R, N-t);
+    else { const a=M.get(key(t+1,j)), b=M.get(key(t+1,j+1)); v = (R*a*b)/(a+(R-1)*b); }
+    M.set(key(t,j), v);
+  }
+  return { get:(t,j)=>M.get(t+':'+j) };
+}
+function stakeFrac(M,t,j,R){
+  const a=M.get(t+1,j), b=M.get(t+1,j+1);
+  if (a===undefined||b===undefined) return 0;
+  if (!isFinite(a)) return 1;                 // the #DIV/0! cell: forced all-in
+  return 1 - (R*b)/(a+(R-1)*b);
+}
+const breakEven = payout => 1/(1+payout);
+
+/* Replay the recorded results of one session, exactly as the sheet does. */
+function replay(cfg){
+  const {startBalance:B0, N, K, payout, slPct, slMode} = cfg;
+  const trades = Array.isArray(cfg.trades) ? cfg.trades : [];
+  const R = 1+payout, M = buildMatrix(N,K,R), maxL = 1+N-K;
+  const hardStop = slMode === 'stop' && slPct > 0;
+  const stopAt = B0*(1-slPct);
+  let bal=B0, t=0, j=0, losses=0, status='open';
+  const rows=[];
+  for (let i=0;i<N;i++){
+    const f = stakeFrac(M,t,j,R), sug = f*bal;
+    const rec = trades[i];
+    const row = { no:i+1, suggested:sug, pctOfBal:f, allIn:f>=0.999,
+                  before:bal, required:M.get(t,j), goal:bal*M.get(t,j) };
+    if (!rec){ rows.push(row); break; }
+    row.result = rec.result;
+    row.stake  = rec.stake != null ? rec.stake : sug;
+    if (rec.result === 'W'){
+      row.ret = rec.ret != null ? rec.ret : row.stake*payout;
+      bal += row.ret; j++;
+    } else {
+      row.ret = -row.stake; bal -= row.stake; losses++;
+    }
+    row.after = bal; rows.push(row); t++;
+    if (bal <= 1e-9){ status='liquidated'; break; }
+    if (j >= K){ status='target'; break; }
+    if (hardStop && bal <= stopAt+1e-9){ status='stopped'; break; }
+    if (losses >= maxL){ status='liquidated'; break; }
+    if (t >= N){ status='exhausted'; break; }
+  }
+  return { rows, balance:bal, wins:j, losses, used:t, status,
+           stopAt, maxLosses:maxL, sessionGain:M.get(0,0)-1,
+           goal:B0*M.get(0,0), pl:bal-B0, M };
+}
+
+/* Exact distribution of one session's outcome multiplier.
+   Enumerates every path (at most 2^N), so these are not estimates. */
+function sessionDist(p, N, K, payout, slPct, slMode){
+  const R=1+payout, M=buildMatrix(N,K,R), maxL=1+N-K;
+  const hardStop = slMode==='stop' && slPct>0, stopAt = 1-slPct;
+  const out=[]; let nodes=0, truncated=false;
+  (function rec(t,j,losses,bal,prob){
+    if (prob < 1e-14) return;
+    if (++nodes > 400000){ truncated=true; return; }
+    if (bal<=1e-9)                        return out.push([0,prob]);
+    if (j>=K)                             return out.push([bal,prob]);
+    if (losses>=maxL)                     return out.push([bal,prob]);
+    if (hardStop && bal<=stopAt+1e-9)     return out.push([bal,prob]);
+    if (t>=N)                             return out.push([bal,prob]);
+    const s = stakeFrac(M,t,j,R)*bal;
+    rec(t+1, j+1, losses,   bal+s*payout, prob*p);
+    rec(t+1, j,   losses+1, bal-s,        prob*(1-p));
+  })(0,0,0,1,1);
+  let mass=0;
+  for (const [,pr] of out) mass += pr;
+  if (mass > 0 && Math.abs(mass-1) > 1e-9) for (const e of out) e[1] /= mass;  // renormalise if truncated
+  let ev=0, ok=0, worst=Infinity;
+  for (const [m,pr] of out){ ev += pr*(m-1); worst = Math.min(worst,m); }
+  for (const [m,pr] of out) if (m >= 1+ (M.get(0,0)-1) - 1e-9) ok += pr;
+  return { paths:out, ev, okProb:ok, worst, truncated };
+}
+
+/* Ruin probability over n sessions, sampling the exact distribution. */
+function ruinCurve(dist, horizons, runs){
+  const cum=[], mult=[]; let acc=0;
+  for (const [m,pr] of dist.paths){ acc+=pr; cum.push(acc); mult.push(m); }
+  const pick = () => {
+    const u = Math.random()*acc;
+    let lo=0, hi=cum.length-1;
+    while (lo<hi){ const mid=(lo+hi)>>1; if (cum[mid]<u) lo=mid+1; else hi=mid; }
+    return mult[lo];
+  };
+  return horizons.map(H => {
+    let ruin=0; const ends=[];
+    for (let r=0;r<runs;r++){
+      let bal=1;
+      for (let s=0;s<H;s++){ bal *= pick(); if (bal<0.1){ ruin++; bal=0; break; } }
+      ends.push(bal);
+    }
+    ends.sort((a,b)=>a-b);
+    return { H, ruin:ruin/runs, med:ends[runs>>1] };
+  });
+}
+
+/* ============================================================
+   STATE + STORAGE (per-person, private)
+   ============================================================ */
+const DEF = { cap:176.72, cur:'EUR', N:11, K:3, payout:0.92, slPct:0.20,
+              slMode:'stop', dgVal:2, dgFmt:'pct' };
+const SYM = { EUR:'€', USD:'$', RON:'lei', GBP:'£', CHF:'CHF' };
+function normSettings(v){
+  const o = {...DEF};
+  if (!v || typeof v!=='object') return o;
+  const num = (k, lo, hi) => { const n=Number(v[k]); if (isFinite(n)&&n>=lo&&n<=hi) o[k]=n; };
+  num('cap', 0.01, 1e12); num('payout', 0.0001, 5); num('slPct', 0, 0.99);
+  num('N', 2, 30); num('K', 1, 29); num('dgVal', -1e9, 1e9);
+  o.N = Math.round(o.N); o.K = Math.round(o.K);
+  if (o.K >= o.N) { o.N = DEF.N; o.K = DEF.K; }
+  if (typeof v.cur === 'string' && SYM[v.cur]) o.cur = v.cur;
+  if (v.slMode === 'stop' || v.slMode === 'alert') o.slMode = v.slMode;
+  if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
+  return o;
+}
+let S = { settings:{...DEF}, current:null, sessions:[] };
+let db=null, uid=null, ready=false;
+
+const LS = {
+  get(k){ try{ const v=localStorage.getItem('tm_'+k); return v?JSON.parse(v):null }catch(e){ return null } },
+  set(k,v){ try{ localStorage.setItem('tm_'+k, JSON.stringify(v)) }catch(e){} }
+};
+function unwrap(snap){
+  if (!snap || typeof snap!=='object') return null;
+  if (snap.exists === false) return null;
+  let d = snap.data;
+  if (typeof d === 'function'){ try{ d = snap.data(); }catch(e){ d = null } }
+  if (d && typeof d === 'object') return d;
+  // some drivers return the payload itself; accept it only if it looks like ours
+  if ('trades' in snap || 'sessions' in snap || 'cap' in snap) return snap;
+  return null;
+}
+async function dbGet(k){
+  if (!db||!uid) return LS.get(k);
+  try{ return unwrap(await db.collection('data/users/'+uid).doc(k).get()); }
+  catch(e){ return LS.get(k) }
+}
+let pending = {};
+async function dbSet(k,v){
+  LS.set(k,v);
+  if (!db||!uid) return;
+  if (pending[k]) { pending[k].next = v; return; }
+  pending[k] = { next:null };
+  try{ await db.collection('data/users/'+uid).doc(k).set(v) }catch(e){ note('Nu am putut salva în cloud') }
+  const nx = pending[k].next; delete pending[k];
+  if (nx !== null && nx !== undefined) dbSet(k,nx);
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const sym = () => SYM[S.settings.cur] || S.settings.cur;
+const money = x => (x==null||!isFinite(x)) ? '—'
+  : (S.settings.cur==='RON'||S.settings.cur==='CHF')
+    ? x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+sym()
+    : sym()+x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct = (x,d=2) => (x==null||!isFinite(x)) ? '—' : (x*100).toFixed(d)+'%';
+const sgn = x => (x>0?'+':'')+money(x);
+const cls = x => x>0.0001?'up':x<-0.0001?'down':'flat';
+function note(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2100); }
+
+function normCurrent(v, fallbackCap, nextN){
+  if (!v || typeof v!=='object') return null;
+  if (!Array.isArray(v.trades)) return null;
+  const sb = Number(v.startBalance);
+  if (!isFinite(sb) || sb <= 0) return null;
+  const trades = v.trades
+    .filter(t => t && (t.result==='W'||t.result==='L'))
+    .map(t => ({ result:t.result,
+                 stake: isFinite(Number(t.stake)) ? Number(t.stake) : undefined,
+                 ret:   isFinite(Number(t.ret))   ? Number(t.ret)   : undefined }));
+  const n = Number(v.n);
+  return { startBalance:sb, trades, n:(isFinite(n)&&n>0)?n:nextN };
+}
+function normSessions(arr){
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(x => x && typeof x==='object'
+      && isFinite(Number(x.start)) && isFinite(Number(x.end)))
+    .map((x,i) => ({ ...x,
+      start:Number(x.start), end:Number(x.end),
+      n: isFinite(Number(x.n)) ? Number(x.n) : i+1,
+      date: x.date || Date.now(),
+      wins: Number(x.wins)||0, losses: Number(x.losses)||0,
+      status: x.status || 'exhausted',
+      trades: Array.isArray(x.trades) ? x.trades : [] }));
+}
+function cur(){
+  const fixed = normCurrent(S.current, S.settings.cap, S.sessions.length+1);
+  if (!fixed) S.current = { startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+  else S.current = fixed;
+  return S.current;
+}
+function calc(){
+  const c = cur(), st = S.settings;
+  return replay({ startBalance:c.startBalance, N:st.N, K:st.K, payout:st.payout,
+                  trades:c.trades, slPct:st.slPct, slMode:st.slMode });
+}
+
+/* ============================================================
+   RENDER — header
+   ============================================================ */
+function renderHeader(r){
+  $('#hBal').textContent = money(r.balance);
+  $('#hSess').textContent = cur().n;
+  const e = $('#hPl');
+  e.textContent = r.rows.some(x=>x.result) ? sgn(r.pl) : '—';
+  e.className = 'mono '+cls(r.pl);
+}
+
+/* ============================================================
+   RENDER — session tab
+   ============================================================ */
+function renderBanner(r){
+  const st = S.settings, box = $('#banner');
+  const done = r.status !== 'open';
+  let html = '';
+  if (r.status === 'target'){
+    html = `<div class="banner b-ok"><span class="ic">&#10003;</span><span>
+      <b>Țintă atinsă</b>${st.K} câștiguri din ${r.used} tranzacții. Profit ${sgn(r.pl)} (${pct(r.pl/cur().startBalance)}).
+      </span></div>`;
+  } else if (r.status === 'stopped'){
+    html = `<div class="banner b-warn"><span class="ic">&#9888;</span><span>
+      <b>Stop loss atins — sesiune oprită</b>Balanța a scăzut la ${money(r.balance)}, sub pragul de ${money(r.stopAt)}.
+      Ai pierdut ${money(-r.pl)} (${pct(-r.pl/cur().startBalance)}). Oprirea aici e tot ce te separă de pierderea întregului cont.
+      </span></div>`;
+  } else if (r.status === 'liquidated'){
+    html = `<div class="banner b-bad"><span class="ic">&#10006;</span><span>
+      <b>Cont lichidat</b>${r.losses} pierderi — limita algoritmului. Balanță ${money(r.balance)}.
+      </span></div>`;
+  } else if (r.status === 'exhausted'){
+    html = `<div class="banner b-warn"><span class="ic">&#9888;</span><span>
+      <b>Sesiune încheiată fără țintă</b>${st.N} tranzacții, doar ${r.wins} din ${st.K} câștiguri. P/L ${sgn(r.pl)}.
+      </span></div>`;
+  }
+  if (done) html += `<button class="btn btn-a" id="bLog" data-act="log" style="width:100%;margin-bottom:12px">Înregistrează sesiunea în jurnal</button>`;
+  box.innerHTML = html;
+}
+
+function renderNext(r){
+  const box = $('#nextBox');
+  if (r.status !== 'open'){ box.innerHTML=''; return; }
+  const row = r.rows[r.rows.length-1];
+  if (!row){ box.innerHTML=''; return; }
+  const st = S.settings, left = st.K - r.wins;
+  const warn = row.allIn
+    ? `<div class="banner b-bad" style="margin:0 0 12px"><span class="ic">&#9888;</span><span>
+        <b>Algoritmul cere tot contul</b>Aceasta e celula care în Excel apare ca <span class="mono">#DIV/0!</span>.
+        O pierdere aici înseamnă zero. Recomandarea mea: oprește sesiunea.</span></div>`
+    : (row.pctOfBal > 0.25
+      ? `<div class="banner b-warn" style="margin:0 0 12px"><span class="ic">&#9888;</span><span>
+          <b>Miză ${pct(row.pctOfBal,1)} din cont</b>Escaladarea a început. Mai ai ${r.maxLosses-r.losses} pierderi până la lichidare.</span></div>`
+      : '');
+  box.innerHTML = warn + `<div class="next">
+    <div class="top">
+      <span class="no">Tranzacția ${row.no} / ${st.N}</span>
+      <span class="req">${r.wins}/${st.K} câștiguri &middot; ${r.losses}/${r.maxLosses} pierderi</span>
+    </div>
+    <div class="stake">
+      <span class="amt mono">${money(row.suggested)}</span>
+      <span class="pct mono">${pct(row.pctOfBal,2)} din balanță</span>
+    </div>
+    <div class="hint">Un câștig acum aduce ${money(row.suggested*st.payout)}. Mai ai nevoie de ${left} ${left===1?'câștig':'câștiguri'}.</div>
+    <div class="edit">
+      <label>Miză reală</label>
+      <input id="iStake" type="number" step="0.01" value="${row.suggested.toFixed(2)}">
+    </div>
+    <div class="btns">
+      <button class="btn btn-w" id="bW" data-act="win">CÂȘTIG</button>
+      <button class="btn btn-l" id="bL" data-act="loss">PIERDERE</button>
+    </div>
+  </div>`;
+}
+
+function renderTarget(r){
+  const st=S.settings, c=cur();
+  $('#tGoal').textContent = money(r.goal);
+  $('#tGain').textContent = '+'+pct(r.sessionGain);
+  $('#tStop').textContent = st.slPct>0 ? money(r.stopAt) : 'inactiv';
+  $('#tMaxL').textContent = r.maxLosses;
+}
+
+function renderTrades(r){
+  const st=S.settings;
+  let h = `<thead><tr><th>#</th><th>Rez.</th><th>Miză</th><th>Încasat</th><th>Balanță</th></tr></thead><tbody>`;
+  for (let i=0;i<st.N;i++){
+    const row = r.rows[i];
+    if (row && row.result){
+      h += `<tr><td class="muted">${row.no}</td>
+        <td><span class="pill pill-${row.result==='W'?'w':'l'}">${row.result==='W'?'C':'P'}</span></td>
+        <td class="mono">${money(row.stake)}</td>
+        <td class="mono ${cls(row.ret)}">${sgn(row.ret)}</td>
+        <td class="mono">${money(row.after)}</td></tr>`;
+    } else if (row){
+      h += `<tr><td class="muted">${row.no}</td><td class="muted">—</td>
+        <td class="mono muted">${money(row.suggested)}</td><td class="muted">—</td><td class="muted">—</td></tr>`;
+    } else {
+      h += `<tr><td class="muted">${i+1}</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td></tr>`;
+    }
+  }
+  $('#trTbl').innerHTML = h+'</tbody>';
+}
+
+function renderDaily(r){
+  const st=S.settings, g=r.sessionGain;
+  $('#dgVal').value = st.dgVal; $('#dgFmt').value = st.dgFmt;
+  const base = cur().startBalance;
+  const targetGain = st.dgFmt==='pct' ? st.dgVal/100 : (base>0 ? st.dgVal/base : 0);
+  const sess = g>0 ? Math.ceil(targetGain/g) : NaN;
+  $('#dgSess').textContent = isFinite(sess)?sess:'—';
+  $('#dgGain').textContent = isFinite(sess)?pct(Math.pow(1+g,sess)-1):'—';
+  $('#dgCap').textContent = isFinite(sess)?money(base*Math.pow(1+g,sess)):'—';
+}
+
+/* ============================================================
+   RENDER — journal
+   ============================================================ */
+function renderJournal(){
+  const ss = S.sessions;
+  if (!ss.length){
+    $('#jPl').textContent='—'; $('#jWr').textContent='—';
+    $('#jWl').textContent='—'; $('#jStart').textContent=money(S.settings.cap);
+    $('#logTbl').innerHTML=''; $('#eqChart').innerHTML='<div class="empty">Nicio sesiune înregistrată încă.</div>';
+    return;
+  }
+  const start = ss[0].start;
+  const pl = ss.reduce((a,s)=>a+(s.end-s.start),0);
+  const won = ss.filter(s=>s.status==='target').length;
+  $('#jPl').innerHTML = `<span class="${cls(pl)}">${sgn(pl)}</span>`;
+  $('#jWr').textContent = pct(won/ss.length,1);
+  $('#jWl').textContent = won+' / '+(ss.length-won);
+  $('#jStart').textContent = money(start);
+
+  const LBL = { target:['C','w'], stopped:['SL','l'], liquidated:['LIQ','l'], exhausted:['X','l'] };
+  let h = `<thead><tr><th>#</th><th>Data</th><th>Start</th><th>C/P</th><th>Final</th><th>P/L</th><th>Rez.</th></tr></thead><tbody>`;
+  for (const s of [...ss].reverse()){
+    const d = new Date(s.date), p = s.end-s.start, L = LBL[s.status]||['?','l'];
+    h += `<tr><td class="muted">${s.n}</td>
+      <td class="muted">${d.toLocaleDateString('ro-RO',{day:'2-digit',month:'2-digit'})}</td>
+      <td class="mono">${money(s.start)}</td>
+      <td class="mono muted">${s.wins}/${s.losses}</td>
+      <td class="mono">${money(s.end)}</td>
+      <td class="mono ${cls(p)}">${sgn(p)}</td>
+      <td><span class="pill pill-${L[1]}">${L[0]}</span></td></tr>`;
+  }
+  $('#logTbl').innerHTML = h+'</tbody>';
+  $('#eqChart').innerHTML = equityChart();
+}
+
+function equityChart(){
+  const ss=S.sessions; if (!ss.length) return '';
+  const pts=[ss[0].start, ...ss.map(s=>s.end)];
+  const W=680,H=190,pl=46,pr=10,pt=12,pb=22;
+  const lo=Math.min(...pts), hi=Math.max(...pts), span=(hi-lo)||1;
+  const x=i=>pl+(W-pl-pr)*(pts.length>1?i/(pts.length-1):0);
+  const y=v=>pt+(H-pt-pb)*(1-(v-lo)/span);
+  const line=pts.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const area=line+` L${x(pts.length-1).toFixed(1)} ${H-pb} L${x(0).toFixed(1)} ${H-pb} Z`;
+  const up=pts[pts.length-1]>=pts[0], col=up?'#2fbf71':'#e5484d';
+  const base=y(pts[0]).toFixed(1);
+  let gl='';
+  for (const f of [0,.5,1]){ const v=lo+span*f, yy=y(v).toFixed(1);
+    gl+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#262e3b" stroke-width="1"/>
+         <text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="#5a6474" font-size="10" text-anchor="end" font-family="monospace">${v.toFixed(0)}</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:190px">
+    <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".26"/><stop offset="1" stop-color="${col}" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${gl}
+    <line x1="${pl}" y1="${base}" x2="${W-pr}" y2="${base}" stroke="#5a6474" stroke-width="1" stroke-dasharray="3 3"/>
+    <path d="${area}" fill="url(#eg)"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(pts[pts.length-1]).toFixed(1)}" r="3.6" fill="${col}"/>
+    <text x="${pl}" y="${H-6}" fill="#5a6474" font-size="10" font-family="monospace">start</text>
+    <text x="${W-pr}" y="${H-6}" fill="#5a6474" font-size="10" text-anchor="end" font-family="monospace">sesiunea ${ss.length}</text>
+  </svg>`;
+}
+
+/* ============================================================
+   RENDER — analysis
+   ============================================================ */
+function tradeStats(){
+  let w=0,l=0;
+  for (const s of S.sessions) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
+  for (const t of (S.current?.trades||[])) (t.result==='W'?w++:l++);
+  return { w, l, n:w+l, rate:(w+l)?w/(w+l):null };
+}
+function maxDrawdown(){
+  const ss=S.sessions; if (!ss.length) return 0;
+  let peak=ss[0].start, dd=0;
+  for (const s of ss){ peak=Math.max(peak,s.end); dd=Math.max(dd,(peak-s.end)/peak); }
+  return dd;
+}
+function renderAnalysis(){
+  const st=S.settings, ts=tradeStats(), be=breakEven(st.payout);
+  $('#aN').textContent=ts.n; $('#aW').textContent=ts.w; $('#aL').textContent=ts.l;
+  $('#aBeLbl').textContent='prag '+pct(be,2);
+  $('#aMark').style.left=(be*100)+'%';
+
+  if (!ts.n){
+    $('#aWr').innerHTML='—<span class="u"> %</span>';
+    $('#aWrSub').textContent='Niciun rezultat înregistrat încă.';
+    $('#aFill').style.width='0%';
+    $('#aVerdict').innerHTML=`Pragul de rentabilitate la un payout de ${pct(st.payout,0)} este <b>${pct(be,2)}</b>. Sub această rată, orice sistem de mizare pierde pe termen lung.`;
+    $('#aConf').textContent='';
+    ['#rEv','#rOk','#rWorst','#rDd'].forEach(s=>$(s).textContent='—');
+    $('#ruinTbl').innerHTML='';
+    $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+    return;
+  }
+  const p=ts.rate, edge=p-be;
+  $('#aWr').innerHTML=(p*100).toFixed(1)+'<span class="u"> %</span>';
+  $('#aFill').style.width=Math.min(100,p*100)+'%';
+  $('#aFill').style.background = edge>=0 ? 'var(--win)' : 'var(--loss)';
+  $('#aWrSub').innerHTML = `${ts.w} câștiguri din ${ts.n} tranzacții &middot; prag ${pct(be,2)} &middot; `+
+    `<span class="${edge>=0?'up':'down'}">${edge>=0?'+':''}${(edge*100).toFixed(2)} pp</span>`;
+
+  // 95% confidence interval on the true win rate (Wilson)
+  const z=1.96, n=ts.n, ctr=(p+z*z/(2*n))/(1+z*z/n);
+  const hw=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/(1+z*z/n);
+  const loCI=Math.max(0,ctr-hw), hiCI=Math.min(1,ctr+hw);
+  $('#aConf').innerHTML = `Interval de încredere 95% pentru rata ta reală: <b>${pct(loCI,1)} – ${pct(hiCI,1)}</b>. `+
+    (hiCI<be ? 'Întregul interval e sub prag — datele indică deja un dezavantaj.'
+     : loCI>be ? 'Întregul interval e peste prag — ai un avantaj statistic real.'
+     : `Pragul de ${pct(be,2)} se află în interval, deci ${ts.n} tranzacții nu sunt încă suficiente ca să știi dacă ai un avantaj. Îți trebuie câteva sute.`);
+
+  $('#aVerdict').innerHTML = edge>=0
+    ? `Ești cu ${(edge*100).toFixed(2)} puncte peste prag. Verifică intervalul de încredere mai jos înainte să tragi concluzii.`
+    : `Ești cu ${Math.abs(edge*100).toFixed(2)} puncte <b>sub</b> prag. La această rată, fiecare sesiune are o valoare așteptată negativă, oricât de multe sesiuni reușite ai la rând.`;
+
+  const d = sessionDist(p, st.N, st.K, st.payout, st.slPct, st.slMode);
+  $('#rEv').innerHTML=`<span class="${cls(d.ev)}">${(d.ev>0?'+':'')+(d.ev*100).toFixed(3)}%</span>`;
+  $('#rOk').textContent=pct(d.okProb,1);
+  $('#rWorst').textContent=pct(d.worst-1,1);
+  $('#rDd').textContent=S.sessions.length?pct(-maxDrawdown(),1):'—';
+
+  const rc = ruinCurve(d, [20,50,100,200], 12000);
+  let h=`<thead><tr><th>Sesiuni</th><th>Risc de ruină</th><th>Rezultat median</th></tr></thead><tbody>`;
+  for (const r of rc){
+    const c = r.ruin>0.5?'down':r.ruin>0.15?'':'up';
+    h+=`<tr><td class="muted">${r.H}</td>
+        <td class="mono ${c}">${pct(r.ruin,1)}</td>
+        <td class="mono">${r.med<0.01?'0':r.med.toFixed(2)+'×'}</td></tr>`;
+  }
+  $('#ruinTbl').innerHTML=h+'</tbody>';
+  $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+}
+
+function escSeries(){
+  const st=S.settings, R=1+st.payout, M=buildMatrix(st.N,st.K,R);
+  const out=[{k:0,bal:1,stake:0}]; let bal=1;
+  for (let t=0;t<=st.N-st.K;t++){
+    const f=stakeFrac(M,t,0,R); if (!isFinite(f)||f<=0) break;
+    const s=f*bal; bal-=s; out.push({k:t+1,bal:Math.max(bal,0),stake:s,frac:f});
+    if (bal<=1e-9) break;
+  }
+  return out;
+}
+function escChart(){
+  const st=S.settings, ser=escSeries(), W=680,H=200,pl=40,pr=12,pt=14,pb=26;
+  const n=ser.length, bw=(W-pl-pr)/n*0.68, gap=(W-pl-pr)/n;
+  const stopY = st.slMode==='stop'&&st.slPct>0 ? (1-st.slPct) : null;
+  const y=v=>pt+(H-pt-pb)*(1-v);
+  let bars='';
+  ser.forEach((d,i)=>{
+    const x=pl+gap*i+(gap-bw)/2, yy=y(d.bal), hh=Math.max(1,(H-pb)-yy);
+    const dead = stopY!==null && d.bal < stopY-1e-9;
+    const col = d.bal<=1e-9?'#e5484d':dead?'#3a4454':d.bal<0.6?'#f0a035':'#4c8dff';
+    bars+=`<rect x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="${col}"/>
+      <text x="${(x+bw/2).toFixed(1)}" y="${H-14}" fill="#5a6474" font-size="10" text-anchor="middle" font-family="monospace">${d.k}</text>
+      <text x="${(x+bw/2).toFixed(1)}" y="${(yy-4).toFixed(1)}" fill="#8c97a8" font-size="9.5" text-anchor="middle" font-family="monospace">${(d.bal*100).toFixed(0)}</text>`;
+  });
+  let sl='';
+  if (stopY!==null){
+    const yy=y(stopY).toFixed(1);
+    sl=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#f0a035" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="${W-pr}" y="${(+yy-5).toFixed(1)}" fill="#f0a035" font-size="10" text-anchor="end" font-family="monospace">stop loss ${(stopY*100).toFixed(0)}%</text>`;
+  }
+  let gl='';
+  for (const v of [0,.5,1]) { const yy=y(v).toFixed(1);
+    gl+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#262e3b"/>
+         <text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="#5a6474" font-size="10" text-anchor="end" font-family="monospace">${(v*100).toFixed(0)}%</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" style="height:200px">${gl}${bars}${sl}
+    <text x="${pl}" y="${H-1}" fill="#5a6474" font-size="9.5" font-family="monospace">pierderi consecutive &rarr;</text></svg>`;
+}
+function escNote(){
+  const st=S.settings, ser=escSeries(), last=ser[ser.length-1];
+  const allIn=ser.find(d=>d.frac>=0.999);
+  const stopped = st.slMode==='stop'&&st.slPct>0;
+  const stopAtK = stopped ? ser.find(d=>d.bal < 1-st.slPct-1e-9) : null;
+  let s = `Fiecare bară arată cât îți rămâne din cont după un șir de pierderi. `;
+  if (allIn) s += `La pierderea ${allIn.k-1} algoritmul cere <b>100% din balanță</b>. `;
+  if (stopped && stopAtK) s += `Cu stop loss activ sesiunea se oprește la pierderea ${stopAtK.k}, cu <b>${(stopAtK.bal*100).toFixed(1)}%</b> din cont intact, în loc să continue până la zero.`;
+  else if (!stopped) s += `Stop loss-ul e pe „doar avertizează", deci nimic nu oprește coborârea până la <b>0</b>.`;
+  return s;
+}
+
+/* ============================================================
+   RENDER — settings
+   ============================================================ */
+function renderSettings(){
+  const st=S.settings;
+  $('#pCap').value=st.cap; $('#pCur').value=st.cur;
+  $('#pN').value=st.N; $('#pK').value=st.K;
+  $('#pPay').value=(st.payout*100).toFixed(1).replace(/\.0$/,'');
+  $('#pSl').value=(st.slPct*100).toFixed(0);
+  $('#pSlMode').value=st.slMode;
+  const R=1+st.payout, M=buildMatrix(st.N,st.K,R);
+  const be=breakEven(st.payout);
+  $('#cNote').innerHTML = `Cu acești parametri: țintă <b>+${pct(M.get(0,0)-1)}</b> per sesiune, `+
+    `prima miză <b>${pct(stakeFrac(M,0,0,R),2)}</b> din balanță, lichidare după <b>${1+st.N-st.K}</b> pierderi. `+
+    `Prag de rentabilitate: <b>${pct(be,2)}</b> rată de câștig.`;
+  const dOn =sessionDist(be,st.N,st.K,st.payout,st.slPct,'stop');
+  const dOff=sessionDist(be,st.N,st.K,st.payout,st.slPct,'alert');
+  $('#slNote').innerHTML = `Cea mai rea sesiune posibilă: <b>${pct(dOn.worst-1,1)}</b> cu oprire la prag, `+
+    `<b>${pct(dOff.worst-1,1)}</b> doar cu avertisment. `+
+    (st.slMode==='stop' ? 'Acum e activă oprirea.' : '<b>Acum e activ doar avertismentul.</b>');
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+function addTrade(result){
+  const r=calc(); if (r.status!=='open') return;
+  const row=r.rows[r.rows.length-1]; if (!row) return;
+  const inp=$('#iStake'); let stake=parseFloat(inp?inp.value:NaN);
+  if (!isFinite(stake)||stake<=0) stake=row.suggested;
+  stake=Math.min(stake, row.before);
+  const c=cur();
+  c.trades.push({ result, stake, ret: result==='W' ? stake*S.settings.payout : -stake });
+  dbSet('current', c); render();
+}
+function undo(){
+  const c=cur(); if (!c.trades.length) return note('Nimic de șters');
+  c.trades.pop(); dbSet('current', c); render();
+}
+function logSession(){
+  const r=calc(), c=cur(), st=S.settings;
+  if (!c.trades.length) return note('Sesiunea e goală');
+  S.sessions.push({
+    n:c.n, date:Date.now(), start:c.startBalance, end:r.balance,
+    N:st.N, K:st.K, payout:st.payout, slPct:st.slPct,
+    goal:r.goal, stop:r.stopAt, wins:r.wins, losses:r.losses,
+    status:r.status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret}))
+  });
+  S.current = { startBalance:r.balance, trades:[], n:c.n+1 };   // auto-copy balance
+  S.settings.cap = r.balance;
+  dbSet('log',{sessions:S.sessions}); dbSet('current',S.current); dbSet('settings',S.settings);
+  note('Sesiune înregistrată'); render();
+}
+let resetArm=false;
+function resetSession(){
+  const c=cur(), b=document.querySelector('#bReset');
+  if (c.trades.length && !resetArm){
+    resetArm=true; b.textContent='Sigur? Apasă din nou';
+    setTimeout(()=>{ resetArm=false; b.textContent='Sesiune nouă'; }, 4000);
+    return;
+  }
+  resetArm=false; b.textContent='Sesiune nouă';
+  S.current={ startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+  dbSet('current',S.current); render();
+}
+
+/* ============================================================
+   EVENTS — one delegated listener, so handlers can never be
+   lost when a panel is re-rendered.
+   ============================================================ */
+function switchTab(t){
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
+  document.querySelectorAll('section').forEach(sx=>sx.classList.toggle('on', sx.id==='tab-'+t));
+  if (t==='a') renderAnalysis();
+  if (t==='j') renderJournal();
+  try{ window.scrollTo(0,0); }catch(e){}
+}
+let wipeArm=false;
+function doExport(){
+  const payload=JSON.stringify({ v:1, exported:new Date().toISOString(),
+    settings:S.settings, current:S.current, sessions:S.sessions }, null, 1);
+  $('#importBox').style.display='block'; $('#impTxt').value=payload;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(payload).then(()=>note('Backup copiat'),()=>note('Copiaz\u0103 textul de jos'));
+  } else note('Copiaz\u0103 textul de jos');
+}
+function doImport(){
+  try{
+    const d=JSON.parse($('#impTxt').value);
+    if (!d||typeof d!=='object') throw 0;
+    if (d.settings) S.settings=normSettings(d.settings);
+    S.sessions=normSessions(d.sessions);
+    S.current=normCurrent(d.current, S.settings.cap, S.sessions.length+1);
+    dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions}); dbSet('current',S.current);
+    $('#importBox').style.display='none'; note('Import re\u0219it'); render();
+  }catch(e){ note('JSON invalid'); }
+}
+function doWipe(){
+  const b=$('#bWipe');
+  if (!wipeArm){ wipeArm=true; b.textContent='Sigur? Apas\u0103 din nou';
+    setTimeout(()=>{wipeArm=false;b.textContent='\u0218terge tot jurnalul';},4000); return; }
+  S.sessions=[]; S.current={startBalance:S.settings.cap,trades:[],n:1};
+  dbSet('log',{sessions:[]}); dbSet('current',S.current);
+  wipeArm=false; b.textContent='\u0218terge tot jurnalul'; note('Jurnal \u0219ters'); render();
+}
+const ACTS = {
+  tab:(el)=>switchTab(el.dataset.t),
+  win:()=>addTrade('W'), loss:()=>addTrade('L'),
+  undo, reset:resetSession, log:logSession,
+  export:doExport, import:doImport,
+  importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
+  importCancel:()=>{ $('#importBox').style.display='none'; },
+  wipe:doWipe,
+};
+document.addEventListener('click', function(e){
+  const t = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!t) return;
+  const fn = ACTS[t.dataset.act];
+  if (!fn) return;
+  e.preventDefault();
+  try{ fn(t); }catch(err){ showErr('ac\u021biune '+t.dataset.act, err&&err.message||String(err)); }
+}, true);
+
+const SETTINGS_MAP = {
+  pCap:['cap', v=>{ const n=parseFloat(v); if(!isFinite(n)||n<=0) return null;
+        if (S.current && !S.current.trades.length){ S.current.startBalance=n; dbSet('current',S.current); } return n; }],
+  pCur:['cur', v=>v],
+  pN:['N', v=>{ const n=parseInt(v,10); return (n>=2&&n<=30&&n>S.settings.K)?n:null; }],
+  pK:['K', v=>{ const n=parseInt(v,10); return (n>=1&&n<S.settings.N)?n:null; }],
+  pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
+  pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
+  pSlMode:['slMode', v=>v],
+  dgVal:['dgVal', v=>{ const n=parseFloat(v); return isFinite(n)?n:null; }],
+  dgFmt:['dgFmt', v=>v],
+};
+document.addEventListener('change', function(e){
+  const el=e.target; if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
+  const [key,xf]=SETTINGS_MAP[el.id];
+  try{
+    const v=xf(el.value); if (v===null){ renderSettings(); return note('Valoare invalid\u0103'); }
+    S.settings[key]=v; dbSet('settings',S.settings); render();
+  }catch(err){ showErr('setare '+el.id, err&&err.message||String(err)); }
+}, true);
+
+/* ============================================================
+   MAIN RENDER + INIT
+   ============================================================ */
+function showErr(where, msg){
+  let b=document.getElementById('errBar');
+  if (!b){
+    b=document.createElement('div');
+    b.id='errBar';
+    b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#e5484d;color:#fff;'+
+      'font:600 12px Inter,sans-serif;padding:9px 12px;line-height:1.4;white-space:pre-wrap;word-break:break-word';
+    document.body.appendChild(b);
+  }
+  b.textContent = 'Eroare ('+where+'): '+msg+'\n\nTrimite-mi acest text și îl repar.';
+}
+window.addEventListener('error', e=>showErr('script', (e.message||'necunoscut')+' @ '+(e.lineno||'?')));
+window.addEventListener('unhandledrejection', e=>showErr('async', String(e.reason&&e.reason.message||e.reason||'necunoscut')));
+
+function render(){
+  try{ render_(); }catch(e){ showErr('render', e&&e.message||String(e)); throw e; }
+}
+function render_(){
+  const r=calc();
+  renderHeader(r); renderBanner(r); renderNext(r);
+  renderTarget(r); renderTrades(r); renderDaily(r);
+  renderJournal(); renderSettings();
+  const act=document.querySelector('nav button.on');
+  if (act && act.dataset.t==='a') renderAnalysis();
+}
+
+try{
+  $('#hb').textContent = 'JS activ \u2713  build 4 \u00b7 PWA  \u00b7  apăsări: 0';
+  let taps=0;
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 4 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+}catch(e){}
+
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      reg.addEventListener('updatefound', ()=>{
+        const w = reg.installing;
+        if (!w) return;
+        w.addEventListener('statechange', ()=>{
+          if (w.state==='installed' && navigator.serviceWorker.controller) note('Versiune nou\u0103 \u2014 redeschide aplica\u021bia');
+        });
+      });
+    }).catch(()=>{});
+  });
+}
+
+render();   // paint immediately with defaults / localStorage
+
+(async()=>{
+  const ls={ settings:LS.get('settings'), current:LS.get('current'), log:LS.get('log') };
+  if (ls.settings) S.settings=normSettings(ls.settings);
+  if (ls.log) S.sessions=normSessions(ls.log.sessions);
+  if (ls.current) S.current=normCurrent(ls.current, S.settings.cap, S.sessions.length+1);
+  render();
+
+  let timedOut=false; const timer=setTimeout(()=>{timedOut=true;},10000);
+  try{
+    const u=await claude.use('user'), d=await claude.use('db');
+    clearTimeout(timer);
+    if (u&&d&&!timedOut){
+      uid=await u.id(); db=d;
+      const [cfg,cu,lg]=await Promise.all([dbGet('settings'),dbGet('current'),dbGet('log')]);
+      if (cfg) S.settings=normSettings(cfg);
+      if (lg) S.sessions=normSessions(lg.sessions);
+      if (cu) S.current=normCurrent(cu, S.settings.cap, S.sessions.length+1);
+      $('#syncMsg').textContent='Date sincronizate · jurnal privat';
+      render(); renderSettings();
+    } else {
+      $('#syncMsg').textContent='Date salvate doar în acest browser';
+    }
+  }catch(e){
+    clearTimeout(timer);
+    $('#syncMsg').textContent='Date salvate doar în acest browser';
+  }
+  ready=true;
+})();
+</script>
+</body>
+</html>
