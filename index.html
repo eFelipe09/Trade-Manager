@@ -1059,22 +1059,33 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 6 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 7 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 6 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 7 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
+  // A page already under a worker gets reloaded once when a new worker takes
+  // over, so an update lands by itself instead of waiting for a manual refresh.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if (!hadController || reloading) return;     // first install: nothing to replace
+    reloading = true;
+    note('Se actualizeaz\u0103\u2026');
+    setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 400);
+  });
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('./sw.js').then(reg=>{
-      reg.addEventListener('updatefound', ()=>{
-        const w = reg.installing;
-        if (!w) return;
-        w.addEventListener('statechange', ()=>{
-          if (w.state==='installed' && navigator.serviceWorker.controller) note('Versiune nou\u0103 \u2014 redeschide aplica\u021bia');
-        });
-      });
+      try{ reg.update(); }catch(e){}                       // check for a new build now
+      setInterval(()=>{ try{ reg.update(); }catch(e){} }, 60*60*1000);  // and hourly
     }).catch(()=>{});
+  });
+  // an app resumed from the background re-checks too
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible'){
+      navigator.serviceWorker.getRegistration().then(r=>{ if (r) try{ r.update(); }catch(e){} }).catch(()=>{});
+    }
   });
 }
 
