@@ -421,11 +421,15 @@ svg{display:block;width:100%;height:auto}
     <h2>Unde te încadrezi</h2>
     <div class="note" style="margin:0 0 9px">Pentru fiecare număr de tranzacții, câte câștiguri trebuie să alegi ca să-ți ajungă capitalul. Apasă un rând ca să-l aplici.</div>
     <div class="fld" style="margin:0 0 10px"><label>Afișare</label>
-      <select id="pFitOnly"><option value="1">Doar combinațiile care încap în capital</option><option value="0">Toate, cu cele nepotrivite în roșu</option></select></div>
+      <select id="pFitOnly">
+        <option value="2">Doar complet valide (verde)</option>
+        <option value="1">Verzi și galbene — acceptă scăderea la ultimul câștig</option>
+        <option value="0">Toate, inclusiv roșu</option></select></div>
     <div class="fit" id="fitBox"></div>
     <div class="note" id="fitNote"></div>
-    <div class="note"><span class="dot dot-ok"></span> încape în capitalul tău &nbsp;&middot;&nbsp;
-      <span class="dot dot-bad"></span> ar cere mai mult capital decât ai</div>
+    <div class="note"><span class="dot dot-ok"></span> toate mizele peste minim &nbsp;&middot;&nbsp;
+      <span class="dot dot-part"></span> scade sub minim doar la ultimul câștig &nbsp;&middot;&nbsp;
+      <span class="dot dot-bad"></span> scade mai devreme</div>
   </div>
 
   <div class="card">
@@ -585,7 +589,7 @@ function ruinCurve(dist, horizons, runs){
    STATE + STORAGE (per-person, private)
    ============================================================ */
 const DEF = { cap:176.72, cur:'EUR', N:11, K:3, payout:0.92, slPct:0.20,
-              slMode:'stop', dgVal:2, dgFmt:'pct', minStake:1, fitOnly:true };
+              slMode:'stop', dgVal:2, dgFmt:'pct', minStake:1, fitMode:1 };
 const SYM = { EUR:'€', USD:'$', RON:'lei', GBP:'£', CHF:'CHF' };
 function normSettings(v){
   const o = {...DEF};
@@ -598,7 +602,7 @@ function normSettings(v){
   if (typeof v.cur === 'string' && SYM[v.cur]) o.cur = v.cur;
   if (v.slMode === 'stop' || v.slMode === 'alert') o.slMode = v.slMode;
   if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
-  if (typeof v.fitOnly === 'boolean') o.fitOnly = v.fitOnly;
+  num('fitMode', 0, 2); o.fitMode = Math.round(o.fitMode);
   return o;
 }
 let S = { settings:{...DEF}, current:null, sessions:[], dayMeta:{} };
@@ -1219,22 +1223,26 @@ function planBasics(N,K,payout){
 function capitalNeeds(N,K,payout,minStake){
   const R=1+payout, M=buildMatrix(N,K,R), maxL=1+N-K, M00=M.get(0,0);
   const firstFrac = stakeFrac(M,0,0,R);
-  let gmin=Infinity, at=null;
+  let gmin=Infinity, at=null, emin=Infinity;      // emin ignores states one win from target
   for (let t=0;t<N;t++) for (let j=0;j<K;j++){
     const L=t-j;
     if (L<0 || L>maxL) continue;
     if (K-j > N-t) continue;                      // can no longer reach the target
     const m=M.get(t,j); if (!isFinite(m)) continue;
     const bal=M00/m, st=stakeFrac(M,t,j,R)*bal;
-    if (st>0 && st<gmin){ gmin=st; at={t,j,L}; }
+    if (st<=0) continue;
+    if (st<gmin){ gmin=st; at={t,j,L}; }
+    if (j <= K-2 && st<emin) emin=st;             // the run before the last win
   }
-  return { start: minStake/firstFrac, full: minStake/gmin, at, firstFrac,
+  return { start: minStake/firstFrac, full: minStake/gmin,
+           early: isFinite(emin) ? minStake/emin : 0, at, firstFrac,
            gain: M00-1, maxLosses: maxL };
 }
 
 function renderFit(){
-  const st=S.settings, bal=cur().startBalance, only=st.fitOnly!==false;
-  $('#pFitOnly').value = only ? '1' : '0';
+  const st=S.settings, bal=cur().startBalance;
+  const mode = [0,1,2].includes(st.fitMode) ? st.fitMode : 1;   // 2 green only, 1 +amber, 0 all
+  $('#pFitOnly').value = String(mode);
   const rows=[];
   let kFrom = 1;                                  // min-K never decreases as N grows
   for (let N=2; N<=60; N++){
@@ -1244,37 +1252,40 @@ function renderFit(){
       if (b.firstFrac>0 && bal >= st.minStake/b.firstFrac - 1e-9){ hit={K,b}; kFrom=K; break; }
     }
     if (!hit) continue;
-    const need = capitalNeeds(N,hit.K,st.payout,st.minStake).full;
-    rows.push({ N, K:hit.K, b:hit.b, need, full: bal >= need-1e-9 });
+    const n = capitalNeeds(N,hit.K,st.payout,st.minStake);
+    const grade = bal >= n.full-1e-9 ? 'ok' : (bal >= n.early-1e-9 ? 'part' : 'bad');
+    rows.push({ N, K:hit.K, b:hit.b, need:n.full, early:n.early, grade });
   }
-  const fitting = rows.filter(r=>r.full);
-  const show = only ? fitting : rows;
+  const green  = rows.filter(r=>r.grade==='ok');
+  const usable = rows.filter(r=>r.grade!=='bad');
+  const show = mode===2 ? green : (mode===1 ? usable : rows);
 
   if (!show.length){
-    $('#fitBox').innerHTML = `<div class="empty">${only
-      ? `Cu ${money(bal)} și o miză minimă de ${money(st.minStake)}, nicio combinație nu ține toate mizele peste minim. Micșorează miza minimă, crește capitalul, sau treci pe „Toate".`
-      : `Nicio combinație posibilă cu ${money(bal)}.`}</div>`;
+    $('#fitBox').innerHTML = `<div class="empty">Cu ${money(bal)} și o miză minimă de ${money(st.minStake)} nu intră nimic în filtrul ales. Slăbește filtrul, micșorează miza minimă sau crește capitalul.</div>`;
+    $('#fitNote').textContent='';
     return;
   }
   let h='<table><thead><tr><th>Tranz.</th><th>Câștiguri</th><th>Prima miză</th>'+
-        (only?'':'<th>Nec.</th>')+'<th>Țintă</th></tr></thead><tbody>';
+        (mode===2?'':'<th>Nec.</th>')+'<th>Țintă</th></tr></thead><tbody>';
   for (const r of show){
     const now = (r.N===st.N && r.K===st.K) ? ' class="now"' : '';
     h += `<tr${now} data-act="pickNK" data-n="${r.N}" data-k="${r.K}">`+
          `<td class="muted">${r.N}</td>`+
-         `<td class="mono">${r.K}<span class="dot dot-${r.full?'ok':'bad'}"></span></td>`+
+         `<td class="mono">${r.K}<span class="dot dot-${r.grade}"></span></td>`+
          `<td class="mono">${money(r.b.firstFrac*bal)}</td>`+
-         (only?'':`<td class="mono ${r.full?'':'down'}">${bigMoney(r.need)}</td>`)+
+         (mode===2?'':`<td class="mono ${r.grade==='ok'?'':(r.grade==='bad'?'down':'')}">${bigMoney(r.need)}</td>`)+
          `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}</td></tr>`;
   }
   $('#fitBox').innerHTML = h+'</tbody></table>';
   const nowRow = $('#fitBox').querySelector('tr.now');
   if (nowRow) try{ nowRow.scrollIntoView({block:'nearest'}); }catch(e){}
 
-  $('#fitNote').innerHTML = fitting.length
-    ? `<b>${plural(fitting.length,'combinație încape','combinații încap')}</b> în ${money(bal)} — până la ${fitting[fitting.length-1].N} tranzacții.`
-      + (only && rows.length>fitting.length ? ` Restul de ${rows.length-fitting.length} sunt ascunse.` : '')
-    : `Nicio combinație nu încape complet în ${money(bal)}.`;
+  const hidden = rows.length - show.length;
+  $('#fitNote').innerHTML =
+    `Cu ${money(bal)}: <b>${green.length}</b> complet valide`+
+    (green.length?` (până la ${green[green.length-1].N} tranzacții)`:'')+
+    `, <b>${usable.length-green.length}</b> care scad sub minim doar la ultimul câștig.`+
+    (hidden>0 ? ` ${plural(hidden,'combinație ascunsă','combinații ascunse')}.` : '');
 }
 
 function renderPlan(){
@@ -1525,7 +1536,7 @@ const SETTINGS_MAP = {
         return n; }],
   pCur:['cur', v=>v],
   pMin:['minStake', v=>{ const n=parseFloat(v); return (n>0&&n<=10000)?n:null; }],
-  pFitOnly:['fitOnly', v=>v==='1'],
+  pFitOnly:['fitMode', v=>{ const n=parseInt(v,10); return (n>=0&&n<=2)?n:null; }],
   pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
   pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
   pSlMode:['slMode', v=>v],
@@ -1580,9 +1591,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 15 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 16 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 15 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 16 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
