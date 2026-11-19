@@ -110,7 +110,7 @@ section.on{display:block}
 .fit tr.now td{background:rgba(76,141,255,.13)}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
-.dot-ok{background:var(--win)} .dot-part{background:var(--warn)}
+.dot-ok{background:var(--win)} .dot-part{background:var(--warn)} .dot-bad{background:var(--loss)}
 .grp{border:1px solid var(--line);border-radius:12px;margin-bottom:9px;overflow:hidden;background:var(--panel2)}
 .grp>.hd2{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
 .grp>.hd2:active{background:rgba(255,255,255,.04)}
@@ -408,6 +408,7 @@ svg{display:block;width:100%;height:auto}
       <div class="fld"><label>Stop loss %</label><input id="pSl" type="number" step="1"></div>
     </div>
     <div class="note" id="cNote"></div>
+    <div id="capNote"></div>
   </div>
 
   <div class="card">
@@ -419,9 +420,12 @@ svg{display:block;width:100%;height:auto}
   <div class="card">
     <h2>Unde te încadrezi</h2>
     <div class="note" style="margin:0 0 9px">Pentru fiecare număr de tranzacții, câte câștiguri trebuie să alegi ca să-ți ajungă capitalul. Apasă un rând ca să-l aplici.</div>
+    <div class="fld" style="margin:0 0 10px"><label>Afișare</label>
+      <select id="pFitOnly"><option value="1">Doar combinațiile care încap în capital</option><option value="0">Toate, cu cele nepotrivite în roșu</option></select></div>
     <div class="fit" id="fitBox"></div>
-    <div class="note"><span class="dot dot-ok"></span> toate mizele peste minim &nbsp;&middot;&nbsp;
-      <span class="dot dot-part"></span> mizele scad sub minim după câteva câștiguri</div>
+    <div class="note" id="fitNote"></div>
+    <div class="note"><span class="dot dot-ok"></span> încape în capitalul tău &nbsp;&middot;&nbsp;
+      <span class="dot dot-bad"></span> ar cere mai mult capital decât ai</div>
   </div>
 
   <div class="card">
@@ -581,7 +585,7 @@ function ruinCurve(dist, horizons, runs){
    STATE + STORAGE (per-person, private)
    ============================================================ */
 const DEF = { cap:176.72, cur:'EUR', N:11, K:3, payout:0.92, slPct:0.20,
-              slMode:'stop', dgVal:2, dgFmt:'pct', minStake:1 };
+              slMode:'stop', dgVal:2, dgFmt:'pct', minStake:1, fitOnly:true };
 const SYM = { EUR:'€', USD:'$', RON:'lei', GBP:'£', CHF:'CHF' };
 function normSettings(v){
   const o = {...DEF};
@@ -594,6 +598,7 @@ function normSettings(v){
   if (typeof v.cur === 'string' && SYM[v.cur]) o.cur = v.cur;
   if (v.slMode === 'stop' || v.slMode === 'alert') o.slMode = v.slMode;
   if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
+  if (typeof v.fitOnly === 'boolean') o.fitOnly = v.fitOnly;
   return o;
 }
 let S = { settings:{...DEF}, current:null, sessions:[], dayMeta:{} };
@@ -1228,31 +1233,48 @@ function capitalNeeds(N,K,payout,minStake){
 }
 
 function renderFit(){
-  const st=S.settings, bal=cur().startBalance;
-  let h='<table><thead><tr><th>Tranz.</th><th>Câștiguri</th><th>Prima miză</th><th>Țintă</th></tr></thead><tbody>';
-  let any=false;
+  const st=S.settings, bal=cur().startBalance, only=st.fitOnly!==false;
+  $('#pFitOnly').value = only ? '1' : '0';
+  const rows=[];
   let kFrom = 1;                                  // min-K never decreases as N grows
   for (let N=2; N<=60; N++){
     let hit=null;
     for (let K=Math.max(1,Math.min(kFrom,N-1)); K<N; K++){
       const b=planBasics(N,K,st.payout);
-      if (b.firstFrac>0 && bal >= st.minStake/b.firstFrac - 1e-9){ hit={K,n:b}; kFrom=K; break; }
+      if (b.firstFrac>0 && bal >= st.minStake/b.firstFrac - 1e-9){ hit={K,b}; kFrom=K; break; }
     }
     if (!hit) continue;
-    any=true;
-    const full = bal >= capitalNeeds(N,hit.K,st.payout,st.minStake).full - 1e-9;
-    const now  = (N===st.N && hit.K===st.K) ? ' class="now"' : '';
-    h += `<tr${now} data-act="pickNK" data-n="${N}" data-k="${hit.K}">`+
-         `<td class="muted">${N}</td>`+
-         `<td class="mono">${hit.K}<span class="dot dot-${full?'ok':'part'}"></span></td>`+
-         `<td class="mono">${money(hit.n.firstFrac*bal)}</td>`+
-         `<td class="mono up">${hit.n.gain>=1e-6?'+':''}${pct(hit.n.gain)}</td></tr>`;
+    const need = capitalNeeds(N,hit.K,st.payout,st.minStake).full;
+    rows.push({ N, K:hit.K, b:hit.b, need, full: bal >= need-1e-9 });
   }
-  h += '</tbody></table>';
-  $('#fitBox').innerHTML = any ? h
-    : `<div class="empty">Cu ${money(bal)} și o miză minimă de ${money(st.minStake)} nicio combinație nu e posibilă. Micșorează miza minimă sau crește capitalul.</div>`;
+  const fitting = rows.filter(r=>r.full);
+  const show = only ? fitting : rows;
+
+  if (!show.length){
+    $('#fitBox').innerHTML = `<div class="empty">${only
+      ? `Cu ${money(bal)} și o miză minimă de ${money(st.minStake)}, nicio combinație nu ține toate mizele peste minim. Micșorează miza minimă, crește capitalul, sau treci pe „Toate".`
+      : `Nicio combinație posibilă cu ${money(bal)}.`}</div>`;
+    return;
+  }
+  let h='<table><thead><tr><th>Tranz.</th><th>Câștiguri</th><th>Prima miză</th>'+
+        (only?'':'<th>Nec.</th>')+'<th>Țintă</th></tr></thead><tbody>';
+  for (const r of show){
+    const now = (r.N===st.N && r.K===st.K) ? ' class="now"' : '';
+    h += `<tr${now} data-act="pickNK" data-n="${r.N}" data-k="${r.K}">`+
+         `<td class="muted">${r.N}</td>`+
+         `<td class="mono">${r.K}<span class="dot dot-${r.full?'ok':'bad'}"></span></td>`+
+         `<td class="mono">${money(r.b.firstFrac*bal)}</td>`+
+         (only?'':`<td class="mono ${r.full?'':'down'}">${bigMoney(r.need)}</td>`)+
+         `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}</td></tr>`;
+  }
+  $('#fitBox').innerHTML = h+'</tbody></table>';
   const nowRow = $('#fitBox').querySelector('tr.now');
   if (nowRow) try{ nowRow.scrollIntoView({block:'nearest'}); }catch(e){}
+
+  $('#fitNote').innerHTML = fitting.length
+    ? `<b>${plural(fitting.length,'combinație încape','combinații încap')}</b> în ${money(bal)} — până la ${fitting[fitting.length-1].N} tranzacții.`
+      + (only && rows.length>fitting.length ? ` Restul de ${rows.length-fitting.length} sunt ascunse.` : '')
+    : `Nicio combinație nu încape complet în ${money(bal)}.`;
 }
 
 function renderPlan(){
@@ -1306,6 +1328,18 @@ function renderSettings(){
     `Prag de rentabilitate: <b>${pct(be,2)}</b> rată de câștig.`;
   const dOn =sessionDist(be,st.N,st.K,st.payout,st.slPct,'stop');
   const dOff=sessionDist(be,st.N,st.K,st.payout,st.slPct,'alert');
+  const c0 = cur(), inPlay = (c0.trades||[]).length > 0, drift = Math.abs(c0.startBalance - st.cap) > 0.005;
+  $('#capNote').innerHTML = drift
+    ? `<div class="banner b-warn" style="margin:11px 0 0"><span class="ic">&#9888;</span><span>
+        <b>Capitalul nou nu s-a aplicat încă</b>
+        Sesiunea ${c0.n} e în curs, pornită de la ${money(c0.startBalance)}${inPlay?` cu ${plural((c0.trades||[]).length,'tranzacție înregistrată','tranzacții înregistrate')}`:''}.
+        Dacă i-aș schimba balanța de start acum, toate mizele deja jucate ar deveni greșite retroactiv.
+        ${money(st.cap)} se aplică automat de la sesiunea următoare.</span></div>
+       <button class="btn ${capArm?'btn-l':'btn-g'}" data-act="applyCap" style="width:100%;margin-top:9px">
+         ${capArm
+           ? 'Sigur? Se pierd '+plural((c0.trades||[]).length,'tranzacție','tranzacții')+' — apasă din nou'
+           : 'Aplică '+money(st.cap)+' acum'+(inPlay?' (renunță la sesiunea în curs)':'')}</button>`
+    : '';
   renderPlan();
   const onSettings = document.querySelector('nav button.on');
   if (onSettings && onSettings.dataset.t==='c') renderFit();
@@ -1372,7 +1406,7 @@ function switchTab(t){
   if (t==='c') renderFit();
   try{ window.scrollTo(0,0); }catch(e){}
 }
-let wipeArm=false;
+let wipeArm=false, capArm=false, capArmTimer=null;
 function bump(key, d){
   const st=S.settings, v=st[key]+d;
   if (key==='N'){ if (v<2 || v>60 || v<=st.K) return note('Limit\u0103 atins\u0103'); }
@@ -1411,6 +1445,19 @@ const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
+  applyCap:()=>{
+    const n=(cur().trades||[]).length;
+    if (n && !capArm){                       // one confirmation before discarding trades
+      capArm = true; renderSettings();
+      clearTimeout(capArmTimer);
+      capArmTimer = setTimeout(()=>{ capArm=false; renderSettings(); }, 5000);
+      return;
+    }
+    clearTimeout(capArmTimer); capArm = false;
+    S.current = { startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+    dbSet('current',S.current);
+    note('Capital aplicat: '+money(S.settings.cap)); render();
+  },
   endDay:()=>{
     const k=todayKey(), d=days().find(x=>x.key===k);
     if (!d) return note('Nicio sesiune ast\u0103zi');
@@ -1472,9 +1519,13 @@ document.addEventListener('click', function(e){
 
 const SETTINGS_MAP = {
   pCap:['cap', v=>{ const n=parseFloat(v); if(!isFinite(n)||n<=0) return null;
-        if (S.current && !S.current.trades.length){ S.current.startBalance=n; dbSet('current',S.current); } return n; }],
+        // an untouched session can simply adopt the new figure; one with trades cannot
+        if (S.current && !(S.current.trades||[]).length){ S.current.startBalance=n; dbSet('current',S.current); }
+        else note('Se aplic\u0103 de la sesiunea urm\u0103toare');
+        return n; }],
   pCur:['cur', v=>v],
   pMin:['minStake', v=>{ const n=parseFloat(v); return (n>0&&n<=10000)?n:null; }],
+  pFitOnly:['fitOnly', v=>v==='1'],
   pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
   pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
   pSlMode:['slMode', v=>v],
@@ -1484,8 +1535,9 @@ const SETTINGS_MAP = {
 document.addEventListener('change', function(e){
   const el=e.target;
   if (el && el.dataset && el.dataset.day && el.dataset.field){
-    const k=el.dataset.day, f=el.dataset.field;
-    S.dayMeta[k] = {...(S.dayMeta[k]||{}), [f]: String(el.value||'').slice(0,300)};
+    const k=el.dataset.day, f=el.dataset.field, v=String(el.value||'').slice(0,300);
+    if (((S.dayMeta[k]||{})[f] || '') === v) return;          // nothing actually changed
+    S.dayMeta[k] = {...(S.dayMeta[k]||{}), [f]: v};
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
     renderDays(); return;
   }
@@ -1493,6 +1545,7 @@ document.addEventListener('change', function(e){
   const [key,xf]=SETTINGS_MAP[el.id];
   try{
     const v=xf(el.value); if (v===null){ renderSettings(); return note('Valoare invalid\u0103'); }
+    if (S.settings[key] === v) return;                        // nothing actually changed
     S.settings[key]=v; dbSet('settings',S.settings); render();
   }catch(err){ showErr('setare '+el.id, err&&err.message||String(err)); }
 }, true);
@@ -1527,9 +1580,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 13 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 15 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 13 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 15 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
