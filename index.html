@@ -111,6 +111,11 @@ section.on{display:block}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
 .dot-ok{background:var(--win)} .dot-part{background:var(--warn)} .dot-bad{background:var(--loss)}
+.del{background:transparent;border:0;color:var(--faint);font:600 15px Inter,sans-serif;line-height:1;
+  padding:4px 7px;border-radius:7px;cursor:pointer;flex:0 0 auto}
+.del:active{background:rgba(229,72,77,.18);color:var(--loss)}
+.del.arm{background:rgba(229,72,77,.2);color:var(--loss);font-size:11px;font-weight:700;padding:4px 9px}
+.wipebar{margin-top:4px}
 .grp{border:1px solid var(--line);border-radius:12px;margin-bottom:9px;overflow:hidden;background:var(--panel2)}
 .grp>.hd2{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
 .grp>.hd2:active{background:rgba(255,255,255,.04)}
@@ -312,6 +317,7 @@ svg{display:block;width:100%;height:auto}
     <h2>Jurnal zilnic</h2>
     <div class="scroll"><table class="tbl" id="dayTbl"></table></div>
   </div>
+  <div id="ziWipe"></div>
 </section>
 
 <!-- ================= JURNAL ================= -->
@@ -336,6 +342,7 @@ svg{display:block;width:100%;height:auto}
     <div class="note" style="margin:0 0 10px">Apasă o zi ca s-o deschizi, apoi o sesiune ca să-i vezi tranzacțiile cu ora exactă.</div>
     <div id="logBox"></div>
   </div>
+  <div id="jWipe"></div>
 </section>
 
 <!-- ================= ANALIZĂ ================= -->
@@ -383,6 +390,7 @@ svg{display:block;width:100%;height:auto}
     <div id="escChart"></div>
     <div class="note" id="escNote"></div>
   </div>
+  <div id="aWipe"></div>
 </section>
 
 <!-- ================= SETĂRI ================= -->
@@ -708,6 +716,12 @@ function money(x, dp){
   return (neg?'-':'') + wrap(n(v, d));
 }
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const wipeBtn = () => !S.sessions.length ? '' :
+  `<div class="card wipebar"><button class="btn ${delArm==='all'?'btn-l':'btn-g'}" data-act="clearAll" style="width:100%">
+     ${delArm==='all'
+       ? 'Sigur? Se șterg toate cele '+plural(S.sessions.length,'sesiune','sesiuni')+' — apasă din nou'
+       : 'Șterge tot istoricul'}</button>
+   <div class="note" style="margin-top:7px">Aceleași date alimentează Zi, Jurnal și Analiză, deci se golesc toate trei.</div></div>`;
 function pct(x,d){
   if (x==null || !isFinite(x)) return '—';
   if (d == null && x !== 0 && Math.abs(x) < 0.000001) return (x<0?'-':'')+'sub 0.0001%';
@@ -981,7 +995,7 @@ function renderDays(){
   $('#dWl').textContent=win+' / '+(all.length-win);
   $('#dN').textContent=all.length;
 
-  let h=`<thead><tr><th>Zi</th><th>Strat.</th><th>TF</th><th>Ses.</th><th>Start</th><th>Final</th><th>%</th><th>P&amp;L</th></tr></thead><tbody>`;
+  let h=`<thead><tr><th>Zi</th><th>Strat.</th><th>TF</th><th>Ses.</th><th>Start</th><th>Final</th><th>%</th><th>P&amp;L</th><th></th></tr></thead><tbody>`;
   const n=all.length;
   all.forEach((d,i)=>{
     h+=`<tr><td class="muted">${n-i}. ${dayLabel(d.key)}</td>
@@ -991,9 +1005,11 @@ function renderDays(){
       <td class="mono">${money(d.start)}</td>
       <td class="mono">${money(d.end)}</td>
       <td class="mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</td>
-      <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td></tr>`;
+      <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td>
+      <td><button class="del${delArm==='day:'+d.key?' arm':''}" data-act="delDay" data-k="${d.key}">${delArm==='day:'+d.key?'sigur?':'✕'}</button></td></tr>`;
   });
   $('#dayTbl').innerHTML=h+'</tbody>';
+  $('#ziWipe').innerHTML = wipeBtn();
 }
 
 /* ============================================================
@@ -1043,6 +1059,7 @@ function renderJournal(){
             <span class="ttl">Sesiunea ${sess.n} <span>· ${hhmm(sess.date)} · ${sess.wins}C/${sess.losses}P</span>
               <span class="pill pill-${L[1]}" style="margin-left:5px">${L[0]}</span></span>
             <span class="amt2 ${cls(sess.end-sess.start)}">${sgn(sess.end-sess.start)}</span>
+            <button class="del${delArm==='sess:'+i?' arm':''}" data-act="delSess" data-i="${i}">${delArm==='sess:'+i?'sigur?':'✕'}</button>
           </div>
           <div class="sub-body">${rows
             ? `<table class="trades-mini">${rows}</table>`
@@ -1055,11 +1072,13 @@ function renderJournal(){
           <span class="ttl"><b>${dayLabel(d.key)}${d.closed?' ✓':''}</b>
             <span>${plural(d.nSessions,'sesiune','sesiuni')} · ${plural(d.wins+d.losses,'tranzacție','tranzacții')} · ${span}</span></span>
           <span class="amt2 ${cls(d.pl)}">${sgn(d.pl)}</span>
+          <button class="del${delArm==='day:'+d.key?' arm':''}" data-act="delDay" data-k="${d.key}">${delArm==='day:'+d.key?'sigur?':'✕'}</button>
         </div>
         <div class="body">${inner}</div>
       </div>`;
   }
   $('#logBox').innerHTML = h;
+  $('#jWipe').innerHTML = wipeBtn();
   $('#eqChart').innerHTML = equityChart();
 }
 
@@ -1122,6 +1141,7 @@ function renderAnalysis(){
     ['#rEv','#rOk','#rWorst','#rDd'].forEach(s=>$(s).textContent='—');
     $('#ruinTbl').innerHTML='';
     $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+    $('#aWipe').innerHTML = wipeBtn();
     return;
   }
   const p=ts.rate, edge=p-be;
@@ -1160,6 +1180,7 @@ function renderAnalysis(){
   }
   $('#ruinTbl').innerHTML=h+'</tbody>';
   $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+  $('#aWipe').innerHTML = wipeBtn();
 }
 
 function escSeries(){
@@ -1418,6 +1439,13 @@ function switchTab(t){
   try{ window.scrollTo(0,0); }catch(e){}
 }
 let wipeArm=false, capArm=false, capArmTimer=null;
+let delArm=null, delArmTimer=null;
+function arm(token, redraw){
+  delArm = token; clearTimeout(delArmTimer);
+  delArmTimer = setTimeout(()=>{ delArm=null; try{ redraw(); }catch(e){} }, 5000);
+  redraw();
+}
+function disarm(){ clearTimeout(delArmTimer); delArm=null; }
 function bump(key, d){
   const st=S.settings, v=st[key]+d;
   if (key==='N'){ if (v<2 || v>60 || v<=st.K) return note('Limit\u0103 atins\u0103'); }
@@ -1468,6 +1496,33 @@ const ACTS = {
     S.current = { startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
     dbSet('current',S.current);
     note('Capital aplicat: '+money(S.settings.cap)); render();
+  },
+  delDay:(el)=>{
+    const k=el.dataset.k, tok='day:'+k;
+    if (delArm!==tok) return arm(tok, ()=>{ renderDays(); renderJournal(); });
+    disarm();
+    const before=S.sessions.length;
+    S.sessions = S.sessions.filter(x=>dayKey(x.date)!==k);
+    delete S.dayMeta[k];
+    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    note(plural(before-S.sessions.length,'sesiune \u0219tears\u0103','sesiuni \u0219terse')); render();
+  },
+  delSess:(el)=>{
+    const i=Number(el.dataset.i), tok='sess:'+i;
+    if (delArm!==tok) return arm(tok, ()=>renderJournal());
+    disarm();
+    if (!S.sessions[i]) return;
+    S.sessions.splice(i,1);
+    openSess.clear();
+    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    note('Sesiune \u0219tears\u0103'); render();
+  },
+  clearAll:()=>{
+    if (delArm!=='all') return arm('all', ()=>{ renderDays(); renderJournal(); renderAnalysis(); });
+    disarm();
+    S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear();
+    dbSet('log',{sessions:[], dayMeta:{}});
+    note('Istoric \u0219ters'); render();
   },
   endDay:()=>{
     const k=todayKey(), d=days().find(x=>x.key===k);
@@ -1591,9 +1646,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 16 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 17 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 16 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 17 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
