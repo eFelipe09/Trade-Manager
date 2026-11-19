@@ -96,6 +96,21 @@ section.on{display:block}
 .btn-copy{flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 13px;font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap;transition:background .15s}
 .btn-copy:active{filter:brightness(.85)}
 .btn-copy.done{background:rgba(47,191,113,.18);border-color:rgba(47,191,113,.45);color:var(--win)}
+.step{display:flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.step button{flex:0 0 46px;background:transparent;border:0;color:var(--dim);font:400 21px Inter,sans-serif;padding:6px 0;cursor:pointer;line-height:1.2}
+.step button:active{background:rgba(255,255,255,.07);color:var(--txt)}
+.step button:disabled{opacity:.25;cursor:default}
+.step span{flex:1;text-align:center;font:700 17px 'JetBrains Mono',monospace;color:var(--txt)}
+.fit{max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
+.fit table{width:100%;border-collapse:collapse;font-size:13px}
+.fit th{position:sticky;top:0;background:var(--panel);text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:5px 7px;border-bottom:1px solid var(--line)}
+.fit th:first-child,.fit td:first-child{text-align:left}
+.fit td{text-align:right;padding:7px;border-bottom:1px solid rgba(38,46,59,.45);cursor:pointer}
+.fit tr:active td{background:rgba(255,255,255,.05)}
+.fit tr.now td{background:rgba(76,141,255,.13)}
+.fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
+.dot-ok{background:var(--win)} .dot-part{background:var(--warn)}
 input,select{
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);
   border-radius:9px;padding:8px 10px;font:600 14px 'JetBrains Mono',monospace;
@@ -300,14 +315,32 @@ svg{display:block;width:100%;height:auto}
         <option value="GBP">GBP £</option><option value="CHF">CHF</option></select></div>
     </div>
     <div class="row2">
-      <div class="fld"><label>Tranzacții / sesiune</label><input id="pN" type="number" min="2" max="30" step="1"></div>
-      <div class="fld"><label>Câștiguri țintă</label><input id="pK" type="number" min="1" max="20" step="1"></div>
+      <div class="fld"><label>Tranzacții</label>
+        <div class="step"><button id="nDn" data-act="stepN" data-d="-1">−</button><span id="sN">—</span><button id="nUp" data-act="stepN" data-d="1">+</button></div>
+      </div>
+      <div class="fld"><label>Câștiguri necesare</label>
+        <div class="step"><button id="kDn" data-act="stepK" data-d="-1">−</button><span id="sK">—</span><button id="kUp" data-act="stepK" data-d="1">+</button></div>
+      </div>
     </div>
     <div class="row2">
       <div class="fld"><label>Payout %</label><input id="pPay" type="number" step="0.5"></div>
       <div class="fld"><label>Stop loss %</label><input id="pSl" type="number" step="1"></div>
     </div>
     <div class="note" id="cNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Previzualizare plan</h2>
+    <div class="fld"><label>Miză minimă la broker</label><input id="pMin" type="number" step="0.01" min="0.01"></div>
+    <div id="planBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Unde te încadrezi</h2>
+    <div class="note" style="margin:0 0 9px">Pentru fiecare număr de tranzacții, câte câștiguri trebuie să alegi ca să-ți ajungă capitalul. Apasă un rând ca să-l aplici.</div>
+    <div class="fit" id="fitBox"></div>
+    <div class="note"><span class="dot dot-ok"></span> toate mizele peste minim &nbsp;&middot;&nbsp;
+      <span class="dot dot-part"></span> mizele scad sub minim după câteva câștiguri</div>
   </div>
 
   <div class="card">
@@ -467,14 +500,14 @@ function ruinCurve(dist, horizons, runs){
    STATE + STORAGE (per-person, private)
    ============================================================ */
 const DEF = { cap:176.72, cur:'EUR', N:11, K:3, payout:0.92, slPct:0.20,
-              slMode:'stop', dgVal:2, dgFmt:'pct' };
+              slMode:'stop', dgVal:2, dgFmt:'pct', minStake:1 };
 const SYM = { EUR:'€', USD:'$', RON:'lei', GBP:'£', CHF:'CHF' };
 function normSettings(v){
   const o = {...DEF};
   if (!v || typeof v!=='object') return o;
   const num = (k, lo, hi) => { const n=Number(v[k]); if (isFinite(n)&&n>=lo&&n<=hi) o[k]=n; };
   num('cap', 0.01, 1e12); num('payout', 0.0001, 5); num('slPct', 0, 0.99);
-  num('N', 2, 30); num('K', 1, 29); num('dgVal', -1e9, 1e9);
+  num('N', 2, 60); num('K', 1, 59); num('dgVal', -1e9, 1e9); num('minStake', 0.0001, 10000);
   o.N = Math.round(o.N); o.K = Math.round(o.K);
   if (o.K >= o.N) { o.N = DEF.N; o.K = DEF.K; }
   if (typeof v.cur === 'string' && SYM[v.cur]) o.cur = v.cur;
@@ -520,12 +553,28 @@ async function dbSet(k,v){
    ============================================================ */
 const $ = s => document.querySelector(s);
 const sym = () => SYM[S.settings.cur] || S.settings.cur;
-const money = x => (x==null||!isFinite(x)) ? '—'
-  : (S.settings.cur==='RON'||S.settings.cur==='CHF')
-    ? x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+sym()
-    : sym()+x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2});
-const pct = (x,d=2) => (x==null||!isFinite(x)) ? '—' : (x*100).toFixed(d)+'%';
+function money(x, dp){
+  if (x==null || !isFinite(x)) return '—';
+  const wrap = v => (S.settings.cur==='RON'||S.settings.cur==='CHF') ? v+' '+sym() : sym()+v;
+  const n = (v,d) => v.toLocaleString('ro-RO',{minimumFractionDigits:d, maximumFractionDigits:d});
+  // below four decimals a rounded figure would read as zero, so say so instead
+  if (dp == null && x !== 0 && Math.abs(x) < 0.0001)
+    return (x < 0 ? '-' : '') + 'sub ' + wrap(n(0.0001, 4));
+  const d = dp != null ? dp : (x !== 0 && Math.abs(x) < 0.01 ? 4 : 2);
+  return wrap(n(x, d));
+}
+function pct(x,d){
+  if (x==null || !isFinite(x)) return '—';
+  if (d == null && x !== 0 && Math.abs(x) < 0.000001) return (x<0?'-':'')+'sub 0.0001%';
+  return (x*100).toFixed(d != null ? d : (x !== 0 && Math.abs(x) < 0.0001 ? 4 : 2))+'%';
+}
 const sgn = x => (x>0?'+':'')+money(x);
+const bigMoney = x => {
+  if (x==null || !isFinite(x)) return '\u2014';
+  if (x < 1e7) return money(x);
+  try{ return sym()+' '+x.toLocaleString('ro-RO',{notation:'compact',maximumFractionDigits:1}); }
+  catch(e){ return sym()+' '+x.toExponential(1); }
+};
 const cls = x => x>0.0001?'up':x<-0.0001?'down':'flat';
 function note(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2100); }
@@ -870,12 +919,99 @@ function escNote(){
 }
 
 /* ============================================================
+   CAPITAL NEEDED
+   bal(t,j) = C * M00 / M[t][j] is order-independent (the plan's
+   invariant), so every reachable stake can be checked exactly.
+   ============================================================ */
+function planBasics(N,K,payout){
+  const R=1+payout, M=buildMatrix(N,K,R);
+  return { firstFrac: stakeFrac(M,0,0,R), gain: M.get(0,0)-1 };
+}
+function capitalNeeds(N,K,payout,minStake){
+  const R=1+payout, M=buildMatrix(N,K,R), maxL=1+N-K, M00=M.get(0,0);
+  const firstFrac = stakeFrac(M,0,0,R);
+  let gmin=Infinity, at=null;
+  for (let t=0;t<N;t++) for (let j=0;j<K;j++){
+    const L=t-j;
+    if (L<0 || L>maxL) continue;
+    if (K-j > N-t) continue;                      // can no longer reach the target
+    const m=M.get(t,j); if (!isFinite(m)) continue;
+    const bal=M00/m, st=stakeFrac(M,t,j,R)*bal;
+    if (st>0 && st<gmin){ gmin=st; at={t,j,L}; }
+  }
+  return { start: minStake/firstFrac, full: minStake/gmin, at, firstFrac,
+           gain: M00-1, maxLosses: maxL };
+}
+
+function renderFit(){
+  const st=S.settings, bal=cur().startBalance;
+  let h='<table><thead><tr><th>Tranz.</th><th>Câștiguri</th><th>Prima miză</th><th>Țintă</th></tr></thead><tbody>';
+  let any=false;
+  let kFrom = 1;                                  // min-K never decreases as N grows
+  for (let N=2; N<=60; N++){
+    let hit=null;
+    for (let K=Math.max(1,Math.min(kFrom,N-1)); K<N; K++){
+      const b=planBasics(N,K,st.payout);
+      if (b.firstFrac>0 && bal >= st.minStake/b.firstFrac - 1e-9){ hit={K,n:b}; kFrom=K; break; }
+    }
+    if (!hit) continue;
+    any=true;
+    const full = bal >= capitalNeeds(N,hit.K,st.payout,st.minStake).full - 1e-9;
+    const now  = (N===st.N && hit.K===st.K) ? ' class="now"' : '';
+    h += `<tr${now} data-act="pickNK" data-n="${N}" data-k="${hit.K}">`+
+         `<td class="muted">${N}</td>`+
+         `<td class="mono">${hit.K}<span class="dot dot-${full?'ok':'part'}"></span></td>`+
+         `<td class="mono">${money(hit.n.firstFrac*bal)}</td>`+
+         `<td class="mono up">${hit.n.gain>=1e-6?'+':''}${pct(hit.n.gain)}</td></tr>`;
+  }
+  h += '</tbody></table>';
+  $('#fitBox').innerHTML = any ? h
+    : `<div class="empty">Cu ${money(bal)} și o miză minimă de ${money(st.minStake)} nicio combinație nu e posibilă. Micșorează miza minimă sau crește capitalul.</div>`;
+  const nowRow = $('#fitBox').querySelector('tr.now');
+  if (nowRow) try{ nowRow.scrollIntoView({block:'nearest'}); }catch(e){}
+}
+
+function renderPlan(){
+  const st=S.settings, bal=cur().startBalance;
+  $('#pMin').value = st.minStake;
+  const n = capitalNeeds(st.N, st.K, st.payout, st.minStake);
+  const first = n.firstFrac*bal;
+  const w = n.at ? n.at.j : 0;
+  const grid = `<div class="grid" style="margin-top:11px">
+      <div class="kv"><div class="k">Prima miză</div><div class="v mono">${money(first)}</div></div>
+      <div class="kv"><div class="k">Țintă / sesiune</div><div class="v mono up">${n.gain>=1e-6?'+':''}${pct(n.gain)}</div></div>
+      <div class="kv"><div class="k">Capital ca să începi</div><div class="v mono sm">${bigMoney(n.start)}</div></div>
+      <div class="kv"><div class="k">Capital pentru tot planul</div><div class="v mono sm">${bigMoney(n.full)}</div></div>
+    </div>`;
+  let h;
+  if (bal < n.start - 1e-9){
+    h = `<div class="banner b-bad" style="margin:0"><span class="ic">&#9888;</span><span>
+      <b>Îți trebuie cel puțin ${money(n.start)}</b>
+      Cu ${st.N} tranzacții și ${st.K} câștiguri, prima miză ar fi ${money(first)} — sub minimul de ${money(st.minStake)}.
+      Ajustează setările sau crește capitalul.</span></div>` + grid;
+  } else if (bal < n.full - 1e-9){
+    h = `<div class="banner b-warn" style="margin:0"><span class="ic">&#9888;</span><span>
+      <b>Poți începe, dar planul se rupe pe parcurs</b>
+      După ${w} ${w===1?'câștig':'câștiguri'} miza cerută scade sub ${money(st.minStake)}, așa că ar trebui să pariezi mai mult decât cere algoritmul, ceea ce înseamnă că depășești ținta dacă câștigi, dar pierzi mai mult decât ai planificat dacă nu.
+      ${n.full > 1e7
+        ? `La această configurație nu există capital realist care să țină toate mizele peste minim: ar trebui ${bigMoney(n.full)}. Micșorează numărul de tranzacții sau crește câștigurile necesare.`
+        : `Pentru ca toate mizele să rămână peste minim îți trebuie ${money(n.full)}.`}</span></div>` + grid;
+  } else {
+    h = `<div class="banner b-ok" style="margin:0"><span class="ic">&#10003;</span><span>
+      <b>Plan valid</b>Toate mizele posibile rămân peste ${money(st.minStake)}, de la prima până la ultima.</span></div>` + grid;
+  }
+  $('#planBox').innerHTML = h;
+  $('#nDn').disabled = st.N <= st.K+1; $('#nUp').disabled = st.N >= 60;
+  $('#kDn').disabled = st.K <= 1;      $('#kUp').disabled = st.K >= st.N-1;
+}
+
+/* ============================================================
    RENDER — settings
    ============================================================ */
 function renderSettings(){
   const st=S.settings;
   $('#pCap').value=st.cap; $('#pCur').value=st.cur;
-  $('#pN').value=st.N; $('#pK').value=st.K;
+  $('#sN').textContent=st.N; $('#sK').textContent=st.K;
   $('#pPay').value=(st.payout*100).toFixed(1).replace(/\.0$/,'');
   $('#pSl').value=(st.slPct*100).toFixed(0);
   $('#pSlMode').value=st.slMode;
@@ -886,6 +1022,9 @@ function renderSettings(){
     `Prag de rentabilitate: <b>${pct(be,2)}</b> rată de câștig.`;
   const dOn =sessionDist(be,st.N,st.K,st.payout,st.slPct,'stop');
   const dOff=sessionDist(be,st.N,st.K,st.payout,st.slPct,'alert');
+  renderPlan();
+  const onSettings = document.querySelector('nav button.on');
+  if (onSettings && onSettings.dataset.t==='c') renderFit();
   $('#slNote').innerHTML = `Cea mai rea sesiune posibilă: <b>${pct(dOn.worst-1,1)}</b> cu oprire la prag, `+
     `<b>${pct(dOff.worst-1,1)}</b> doar cu avertisment. `+
     (st.slMode==='stop' ? 'Acum e activă oprirea.' : '<b>Acum e activ doar avertismentul.</b>');
@@ -945,9 +1084,16 @@ function switchTab(t){
   document.querySelectorAll('section').forEach(sx=>sx.classList.toggle('on', sx.id==='tab-'+t));
   if (t==='a') renderAnalysis();
   if (t==='j') renderJournal();
+  if (t==='c') renderFit();
   try{ window.scrollTo(0,0); }catch(e){}
 }
 let wipeArm=false;
+function bump(key, d){
+  const st=S.settings, v=st[key]+d;
+  if (key==='N'){ if (v<2 || v>60 || v<=st.K) return note('Limit\u0103 atins\u0103'); }
+  else          { if (v<1 || v>=st.N)        return note('Limit\u0103 atins\u0103'); }
+  st[key]=v; dbSet('settings',st); render();
+}
 function doExport(){
   const payload=JSON.stringify({ v:1, exported:new Date().toISOString(),
     settings:S.settings, current:S.current, sessions:S.sessions }, null, 1);
@@ -979,6 +1125,14 @@ const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
+  pickNK:(el)=>{
+    const N=Number(el.dataset.n), K=Number(el.dataset.k);
+    if (!(N>=2&&N<=60&&K>=1&&K<N)) return;
+    S.settings.N=N; S.settings.K=K; dbSet('settings',S.settings);
+    note(N+' tranzac\u021bii, '+K+' c\u00e2\u0219tiguri'); render();
+  },
+  stepN:(el)=>bump('N', Number(el.dataset.d)),
+  stepK:(el)=>bump('K', Number(el.dataset.d)),
   copyStake: async (btn)=>{
     const inp=$('#iStake'); if (!inp) return;
     const v=String(inp.value||'').trim();
@@ -1012,8 +1166,7 @@ const SETTINGS_MAP = {
   pCap:['cap', v=>{ const n=parseFloat(v); if(!isFinite(n)||n<=0) return null;
         if (S.current && !S.current.trades.length){ S.current.startBalance=n; dbSet('current',S.current); } return n; }],
   pCur:['cur', v=>v],
-  pN:['N', v=>{ const n=parseInt(v,10); return (n>=2&&n<=30&&n>S.settings.K)?n:null; }],
-  pK:['K', v=>{ const n=parseInt(v,10); return (n>=1&&n<S.settings.N)?n:null; }],
+  pMin:['minStake', v=>{ const n=parseFloat(v); return (n>0&&n<=10000)?n:null; }],
   pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
   pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
   pSlMode:['slMode', v=>v],
@@ -1059,9 +1212,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 7 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 11 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 7 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 11 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
