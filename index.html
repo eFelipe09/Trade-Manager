@@ -83,7 +83,11 @@ section.on{display:block}
 
 /* ---------- next trade ---------- */
 .next{background:linear-gradient(160deg,#1a2130,#141922);border:1px solid #2c3647;border-radius:var(--r);padding:15px;margin-bottom:12px}
-.next .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.next .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}
+.next .req{text-align:right;line-height:1.2;white-space:nowrap}
+.next .req .rl{display:block;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:3px}
+.next .req b{font:700 17px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:var(--txt)}
+.next .req b .sep{color:var(--faint);font-weight:400;padding:0 2px}
 .next .no{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:700}
 .next .req{font-size:11.5px;color:var(--dim)}
 .stake{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
@@ -833,7 +837,8 @@ function renderNext(r){
   box.innerHTML = warn + `<div class="next">
     <div class="top">
       <span class="no">Tranzacția ${row.no} / ${st.N}</span>
-      <span class="req">${r.wins}/${st.K} câștiguri &middot; ${r.losses}/${r.maxLosses} pierderi</span>
+      <span class="req"><span class="rl">Câștiguri / Rămase</span>
+        <b>${st.K - r.wins}<span class="sep">/</span>${st.N - r.used}</b></span>
     </div>
     <div class="stake">
       <span class="amt mono">${money(row.suggested)}</span>
@@ -1646,9 +1651,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 17 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 18 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 17 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 18 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
