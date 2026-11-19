@@ -45,8 +45,8 @@ header{
 .bal{flex:1;min-width:0}
 .bal .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
 .bal .val{font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
-.pl{text-align:right;font-size:13px;font-weight:600}
-.pl .sub{display:block;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:2px}
+.pl{text-align:right;font-size:21px;font-weight:700;letter-spacing:-.015em;line-height:1.15;flex:0 0 auto;white-space:nowrap}
+.pl .sub{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:3px}
 .up{color:var(--win)} .down{color:var(--loss)} .flat{color:var(--dim)}
 
 nav{display:flex;gap:2px;padding-bottom:9px;overflow-x:auto;scrollbar-width:none}
@@ -111,6 +111,56 @@ section.on{display:block}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
 .dot-ok{background:var(--win)} .dot-part{background:var(--warn)}
+.grp{border:1px solid var(--line);border-radius:12px;margin-bottom:9px;overflow:hidden;background:var(--panel2)}
+.grp>.hd2{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
+.grp>.hd2:active{background:rgba(255,255,255,.04)}
+.grp .caret{flex:0 0 11px;color:var(--faint);font-size:11px;transition:transform .15s;line-height:1}
+.grp.open .caret{transform:rotate(90deg)}
+.grp .ttl{flex:1;min-width:0}
+.grp .ttl b{display:block;font-size:14px;font-weight:600}
+.grp .ttl span{font-size:11.5px;color:var(--faint)}
+.grp .amt2{font:700 15px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp .body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
+.grp.open .body{display:block}
+.sub-grp{border-top:1px solid rgba(38,46,59,.6)}
+.sub-grp:first-child{border-top:0}
+.sub-hd{display:flex;align-items:center;gap:8px;padding:9px 0;cursor:pointer}
+.sub-hd:active{opacity:.7}
+.sub-hd .ttl{flex:1;min-width:0;font-size:13px}
+.sub-hd .ttl span{color:var(--faint);font-size:11.5px}
+.sub-body{display:none;padding:0 0 9px}
+.sub-grp.open .sub-body{display:block}
+.trades-mini{width:100%;border-collapse:collapse;font-size:12.5px}
+.trades-mini td{padding:4px 5px;border-bottom:1px solid rgba(38,46,59,.45);text-align:right}
+.trades-mini td:first-child{text-align:left;color:var(--faint);font-family:'JetBrains Mono',monospace}
+.trades-mini tr:last-child td{border-bottom:0}
+.daysel{display:flex;gap:8px;margin-bottom:9px}
+.daysel>div{flex:1;min-width:0}
+.daysel label{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:4px}
+.closed-tag{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--win);background:rgba(47,191,113,.15);padding:2px 7px;border-radius:20px}
+.open-tag{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--warn);background:rgba(240,160,53,.15);padding:2px 7px;border-radius:20px}
+.calhd{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.calhd b{flex:1;text-align:center;font-size:14px;font-weight:600}
+.calhd button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;
+  width:36px;height:32px;font:600 15px Inter,sans-serif;cursor:pointer;line-height:1}
+.calhd button:active{background:rgba(255,255,255,.07)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .dow{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);text-align:center;font-weight:700;padding-bottom:3px}
+.cal .cell{aspect-ratio:1;border-radius:8px;border:1px solid var(--line);background:var(--panel2);
+  padding:3px 4px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.cal .cell.has{cursor:pointer}
+.cal .cell.has:active{filter:brightness(1.25)}
+.cal .cell.blank{border-color:transparent;background:transparent}
+.cal .cell .n{font-size:9px;color:var(--faint);font-weight:700;line-height:1}
+.cal .cell .v{font:700 10px 'JetBrains Mono',monospace;line-height:1.15;text-align:right;word-break:break-all}
+.cal .cell .s{font-size:8px;color:var(--faint);text-align:right;line-height:1.1}
+.cal .cell.win{background:rgba(47,191,113,.15);border-color:rgba(47,191,113,.35)}
+.cal .cell.win .v{color:var(--win)}
+.cal .cell.loss{background:rgba(229,72,77,.14);border-color:rgba(229,72,77,.34)}
+.cal .cell.loss .v{color:var(--loss)}
+.cal .cell.today{box-shadow:0 0 0 1.5px var(--warn)}
+.cal .cell.sel{box-shadow:0 0 0 2px var(--accent)}
+.caldet{margin-top:11px}
 input,select{
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);
   border-radius:9px;padding:8px 10px;font:600 14px 'JetBrains Mono',monospace;
@@ -189,6 +239,7 @@ svg{display:block;width:100%;height:auto}
   </div>
   <nav>
     <button class="on" data-t="s" data-act="tab">Sesiune</button>
+    <button data-t="z" data-act="tab">Zi</button>
     <button data-t="j" data-act="tab">Jurnal</button>
     <button data-t="a" data-act="tab">Analiză</button>
     <button data-t="c" data-act="tab">Setări</button>
@@ -234,6 +285,35 @@ svg{display:block;width:100%;height:auto}
     </div>
   </div>
 </section>
+<!-- ================= ZI ================= -->
+<section id="tab-z">
+  <div class="card">
+    <h2>Calendar P&amp;L</h2>
+    <div class="calhd">
+      <button data-act="calPrev">‹</button><b id="calTitle">—</b><button data-act="calNext">›</button>
+    </div>
+    <div class="cal" id="calGrid"></div>
+    <div class="caldet" id="calDet"></div>
+  </div>
+
+  <div id="todayBox"></div>
+
+  <div class="card">
+    <h2>Sumar</h2>
+    <div class="grid">
+      <div class="kv"><div class="k">P&amp;L total</div><div class="v mono" id="dTot">—</div></div>
+      <div class="kv"><div class="k">Zile pe plus</div><div class="v mono" id="dPct">—</div></div>
+      <div class="kv"><div class="k">Câștigate / pierdute</div><div class="v mono sm" id="dWl">—</div></div>
+      <div class="kv"><div class="k">Total zile</div><div class="v mono sm" id="dN">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Jurnal zilnic</h2>
+    <div class="scroll"><table class="tbl" id="dayTbl"></table></div>
+  </div>
+</section>
+
 <!-- ================= JURNAL ================= -->
 <section id="tab-j">
   <div class="card">
@@ -252,8 +332,9 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
-    <h2>Sesiuni</h2>
-    <div class="scroll"><table class="tbl" id="logTbl"></table></div>
+    <h2>Sesiuni pe zile</h2>
+    <div class="note" style="margin:0 0 10px">Apasă o zi ca s-o deschizi, apoi o sesiune ca să-i vezi tranzacțiile cu ora exactă.</div>
+    <div id="logBox"></div>
   </div>
 </section>
 
@@ -515,7 +596,61 @@ function normSettings(v){
   if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
   return o;
 }
-let S = { settings:{...DEF}, current:null, sessions:[] };
+let S = { settings:{...DEF}, current:null, sessions:[], dayMeta:{} };
+
+/* ---------- days ---------- */
+const STRATEGIES = ['Fast Five','3 Bar/Offset','Alta'];
+const TIMEFRAMES = ['5s','15s','30s','1m','2m','5m'];
+const dayKey = ts => { const d=new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const todayKey = () => dayKey(Date.now());
+const hhmm = ts => (ts==null||!isFinite(ts)) ? '' :
+  new Date(ts).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});
+const dayLabel = k => {
+  const [y,m,d]=k.split('-').map(Number), dt=new Date(y,m-1,d);
+  const s=dt.toLocaleDateString('ro-RO',{weekday:'short',day:'2-digit',month:'short'});
+  return s.charAt(0).toUpperCase()+s.slice(1);
+};
+function normDayMeta(v){
+  const o={};
+  if (!v || typeof v!=='object') return o;
+  for (const [k,m] of Object.entries(v)){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !m || typeof m!=='object') continue;
+    o[k] = { strategy: typeof m.strategy==='string'? m.strategy.slice(0,40):'',
+             tf:       typeof m.tf==='string'      ? m.tf.slice(0,10):'',
+             expiry:   typeof m.expiry==='string'  ? m.expiry.slice(0,10):'',
+             asset:    typeof m.asset==='string'   ? m.asset.slice(0,20):'',
+             note:     typeof m.note==='string'    ? m.note.slice(0,300):'',
+             closed:   !!m.closed,
+             closedAt: isFinite(Number(m.closedAt)) ? Number(m.closedAt) : null };
+  }
+  return o;
+}
+/* Sessions grouped into days, newest first. */
+function days(){
+  const map=new Map();
+  for (const s of S.sessions){
+    const k=dayKey(s.date);
+    if (!map.has(k)) map.set(k,[]);
+    map.get(k).push(s);
+  }
+  const out=[];
+  for (const [k,ss] of map){
+    ss.sort((a,b)=>a.date-b.date);
+    const meta = S.dayMeta[k] || {};
+    let w=0,l=0;
+    for (const s of ss) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
+    out.push({ key:k, sessions:ss, meta,
+      start: ss[0].start, end: ss[ss.length-1].end,
+      pl: ss[ss.length-1].end - ss[0].start,
+      pct: ss[0].start ? (ss[ss.length-1].end - ss[0].start)/ss[0].start : 0,
+      wins:w, losses:l, nSessions:ss.length,
+      firstTs: ss[0].date, lastTs: ss[ss.length-1].date,
+      closed: !!meta.closed });
+  }
+  out.sort((a,b)=>b.key.localeCompare(a.key));
+  return out;
+}
 let db=null, uid=null, ready=false;
 
 const LS = {
@@ -555,14 +690,15 @@ const $ = s => document.querySelector(s);
 const sym = () => SYM[S.settings.cur] || S.settings.cur;
 function money(x, dp){
   if (x==null || !isFinite(x)) return '—';
-  const wrap = v => (S.settings.cur==='RON'||S.settings.cur==='CHF') ? v+' '+sym() : sym()+v;
-  const n = (v,d) => v.toLocaleString('ro-RO',{minimumFractionDigits:d, maximumFractionDigits:d});
+  const neg = x < 0, v = Math.abs(x);            // sign goes before the symbol: -€0,56
+  const wrap = t => (S.settings.cur==='RON'||S.settings.cur==='CHF') ? t+' '+sym() : sym()+t;
+  const n = (q,d) => q.toLocaleString('ro-RO',{minimumFractionDigits:d, maximumFractionDigits:d});
   // below four decimals a rounded figure would read as zero, so say so instead
-  if (dp == null && x !== 0 && Math.abs(x) < 0.0001)
-    return (x < 0 ? '-' : '') + 'sub ' + wrap(n(0.0001, 4));
-  const d = dp != null ? dp : (x !== 0 && Math.abs(x) < 0.01 ? 4 : 2);
-  return wrap(n(x, d));
+  if (dp == null && v !== 0 && v < 0.0001) return (neg?'-':'') + 'sub ' + wrap(n(0.0001, 4));
+  const d = dp != null ? dp : (v !== 0 && v < 0.01 ? 4 : 2);
+  return (neg?'-':'') + wrap(n(v, d));
 }
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 function pct(x,d){
   if (x==null || !isFinite(x)) return '—';
   if (d == null && x !== 0 && Math.abs(x) < 0.000001) return (x<0?'-':'')+'sub 0.0001%';
@@ -588,7 +724,8 @@ function normCurrent(v, fallbackCap, nextN){
     .filter(t => t && (t.result==='W'||t.result==='L'))
     .map(t => ({ result:t.result,
                  stake: isFinite(Number(t.stake)) ? Number(t.stake) : undefined,
-                 ret:   isFinite(Number(t.ret))   ? Number(t.ret)   : undefined }));
+                 ret:   isFinite(Number(t.ret))   ? Number(t.ret)   : undefined,
+                 ts:    isFinite(Number(t.ts))    ? Number(t.ts)    : undefined }));
   const n = Number(v.n);
   return { startBalance:sb, trades, n:(isFinite(n)&&n>0)?n:nextN };
 }
@@ -736,37 +873,184 @@ function renderDaily(r){
 }
 
 /* ============================================================
+   RENDER — day
+   ============================================================ */
+function renderToday(){
+  const k=todayKey(), all=days(), d=all.find(x=>x.key===k);
+  const meta = S.dayMeta[k] || {};
+  const sel = (field, opts, val, ph) =>
+    `<select data-day="${k}" data-field="${field}">`+
+    `<option value=""${val?'':' selected'}>${ph}</option>`+
+    opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')+`</select>`;
+  const fields = `<div class="daysel">
+      <div><label>Strategie</label>${sel('strategy',STRATEGIES,meta.strategy||'','—')}</div>
+      <div><label>Timeframe</label>${sel('tf',TIMEFRAMES,meta.tf||'','—')}</div>
+      <div><label>Expirare</label>${sel('expiry',TIMEFRAMES,meta.expiry||'','—')}</div>
+    </div>`;
+  if (!d){
+    $('#todayBox').innerHTML = `<div class="card"><h2>Azi · ${dayLabel(k)}</h2>
+      <div class="empty" style="padding:14px 6px">Nicio sesiune înregistrată astăzi.</div>${fields}</div>`;
+    return;
+  }
+  const tag = d.closed ? `<span class="closed-tag">ÎNCHISĂ</span>` : `<span class="open-tag">ÎN CURS</span>`;
+  $('#todayBox').innerHTML = `<div class="card">
+    <h2 style="display:flex;justify-content:space-between;align-items:center">
+      <span>Azi · ${dayLabel(k)}</span>${tag}</h2>
+    <div class="grid" style="margin-bottom:11px">
+      <div class="kv"><div class="k">P&amp;L azi</div><div class="v mono ${cls(d.pl)}">${sgn(d.pl)}</div></div>
+      <div class="kv"><div class="k">Randament</div><div class="v mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</div></div>
+      <div class="kv"><div class="k">Start → acum</div><div class="v mono sm">${money(d.start)} → ${money(d.end)}</div></div>
+      <div class="kv"><div class="k">Sesiuni · tranzacții</div><div class="v mono sm">${d.nSessions} · ${d.wins+d.losses}</div></div>
+    </div>
+    ${fields}
+    ${d.closed
+      ? `<button class="btn btn-g" data-act="reopenDay" style="width:100%">Redeschide ziua</button>`
+      : `<button class="btn btn-a" data-act="endDay" style="width:100%">Încheie ziua (${sgn(d.pl)})</button>`}
+  </div>`;
+}
+
+let calMonth = null;      // 'YYYY-MM' shown in the calendar
+let calSel   = null;      // day picked in the calendar
+
+function renderCalendar(){
+  const all = days(), byKey = new Map(all.map(d=>[d.key,d]));
+  if (!calMonth){
+    calMonth = all.length ? all[0].key.slice(0,7) : todayKey().slice(0,7);
+  }
+  const [Y,M] = calMonth.split('-').map(Number);
+  const title = new Date(Y, M-1, 1).toLocaleDateString('ro-RO',{month:'long',year:'numeric'});
+  $('#calTitle').textContent = title.charAt(0).toUpperCase()+title.slice(1);
+
+  const first = new Date(Y, M-1, 1);
+  const lead  = (first.getDay()+6)%7;            // Monday-first
+  const nDays = new Date(Y, M, 0).getDate();
+  const tk    = todayKey();
+
+  let h = ['L','Ma','Mi','J','V','S','D'].map(d=>`<div class="dow">${d}</div>`).join('');
+  for (let i=0;i<lead;i++) h += '<div class="cell blank"></div>';
+  let monthPl = 0, monthDays = 0;
+  for (let d=1; d<=nDays; d++){
+    const k = `${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = byKey.get(k);
+    const klass = ['cell'];
+    if (rec){ klass.push('has', rec.pl>0?'win':(rec.pl<0?'loss':'')); monthPl+=rec.pl; monthDays++; }
+    if (k===tk) klass.push('today');
+    if (k===calSel) klass.push('sel');
+    h += `<div class="${klass.join(' ')}"${rec?` data-act="pickDay" data-k="${k}"`:''}>`+
+         `<div class="n">${d}</div>`+
+         (rec ? `<div><div class="v">${rec.pl>0?'+':''}${Math.abs(rec.pl)>=100?Math.round(rec.pl):rec.pl.toFixed(1)}</div>`+
+                `<div class="s">${rec.nSessions}s · ${rec.wins}/${rec.losses}</div></div>` : '<div></div>')+
+         `</div>`;
+  }
+  $('#calGrid').innerHTML = h;
+
+  const sel = calSel ? byKey.get(calSel) : null;
+  $('#calDet').innerHTML = sel
+    ? `<div class="banner ${sel.pl>0?'b-ok':(sel.pl<0?'b-bad':'b-info')}" style="margin:0">
+         <span class="ic">${sel.pl>0?'&#9650;':(sel.pl<0?'&#9660;':'&#8226;')}</span><span>
+         <b>${dayLabel(sel.key)} · ${sgn(sel.pl)} (${sel.pct>=0?'+':''}${pct(sel.pct)})</b>
+         ${plural(sel.nSessions,'sesiune','sesiuni')} · ${plural(sel.wins,'câștig','câștiguri')}, ${plural(sel.losses,'pierdere','pierderi')} ·
+         ${money(sel.start)} → ${money(sel.end)}${sel.meta.strategy?' · '+sel.meta.strategy:''}${sel.meta.tf?' · '+sel.meta.tf:''}
+         </span></div>`
+    : (monthDays
+        ? `<div class="note" style="margin:0">Luna aceasta: <b>${sgn(monthPl)}</b> în ${plural(monthDays,'zi','zile')}. Apasă o zi pentru detalii.</div>`
+        : `<div class="note" style="margin:0">Nicio zi înregistrată în luna aceasta.</div>`);
+}
+
+function renderDays(){
+  renderCalendar();
+  renderToday();
+  const all=days();
+  if (!all.length){
+    ['#dTot','#dPct','#dWl','#dN'].forEach(x=>$(x).textContent='—');
+    $('#dayTbl').innerHTML=''; return;
+  }
+  const tot=all.reduce((a,d)=>a+d.pl,0);
+  const win=all.filter(d=>d.pl>0).length;
+  $('#dTot').innerHTML=`<span class="${cls(tot)}">${sgn(tot)}</span>`;
+  $('#dPct').textContent=pct(win/all.length,1);
+  $('#dWl').textContent=win+' / '+(all.length-win);
+  $('#dN').textContent=all.length;
+
+  let h=`<thead><tr><th>Zi</th><th>Strat.</th><th>TF</th><th>Ses.</th><th>Start</th><th>Final</th><th>%</th><th>P&amp;L</th></tr></thead><tbody>`;
+  const n=all.length;
+  all.forEach((d,i)=>{
+    h+=`<tr><td class="muted">${n-i}. ${dayLabel(d.key)}</td>
+      <td class="muted">${d.meta.strategy||'—'}</td>
+      <td class="muted">${d.meta.tf||'—'}</td>
+      <td class="mono muted">${d.nSessions}</td>
+      <td class="mono">${money(d.start)}</td>
+      <td class="mono">${money(d.end)}</td>
+      <td class="mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</td>
+      <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td></tr>`;
+  });
+  $('#dayTbl').innerHTML=h+'</tbody>';
+}
+
+/* ============================================================
    RENDER — journal
    ============================================================ */
+const openDays = new Set(), openSess = new Set();
+const SLBL = { target:['ȚINTĂ','w'], stopped:['STOP','l'], liquidated:['LIQ','l'],
+               exhausted:['X','l'], closed:['MANUAL','n'] };
+
 function renderJournal(){
   const ss = S.sessions;
   if (!ss.length){
     $('#jPl').textContent='—'; $('#jWr').textContent='—';
     $('#jWl').textContent='—'; $('#jStart').textContent=money(S.settings.cap);
-    $('#logTbl').innerHTML=''; $('#eqChart').innerHTML='<div class="empty">Nicio sesiune înregistrată încă.</div>';
+    $('#logBox').innerHTML='<div class="empty">Nicio sesiune înregistrată încă.</div>';
+    $('#eqChart').innerHTML='<div class="empty">Nicio sesiune înregistrată încă.</div>';
     return;
   }
-  const start = ss[0].start;
-  const pl = ss.reduce((a,s)=>a+(s.end-s.start),0);
-  const won = ss.filter(s=>s.end>s.start).length;
+  const pl  = ss.reduce((a,x)=>a+(x.end-x.start),0);
+  const won = ss.filter(x=>x.end>x.start).length;
   $('#jPl').innerHTML = `<span class="${cls(pl)}">${sgn(pl)}</span>`;
   $('#jWr').textContent = pct(won/ss.length,1);
   $('#jWl').textContent = won+' / '+(ss.length-won);
-  $('#jStart').textContent = money(start);
+  $('#jStart').textContent = money(ss[0].start);
 
-  const LBL = { target:['ȚINTĂ','w'], stopped:['STOP','l'], liquidated:['LIQ','l'], exhausted:['X','l'], closed:['MANUAL','n'] };
-  let h = `<thead><tr><th>#</th><th>Data</th><th>Start</th><th>C/P</th><th>Final</th><th>P/L</th><th>Rez.</th></tr></thead><tbody>`;
-  for (const s of [...ss].reverse()){
-    const d = new Date(s.date), p = s.end-s.start, L = LBL[s.status]||['?','l'];
-    h += `<tr><td class="muted">${s.n}</td>
-      <td class="muted">${d.toLocaleDateString('ro-RO',{day:'2-digit',month:'2-digit'})}</td>
-      <td class="mono">${money(s.start)}</td>
-      <td class="mono muted">${s.wins}/${s.losses}</td>
-      <td class="mono">${money(s.end)}</td>
-      <td class="mono ${cls(p)}">${sgn(p)}</td>
-      <td><span class="pill pill-${L[1]}">${L[0]}</span></td></tr>`;
+  const idxOf = new Map(ss.map((x,i)=>[x,i]));
+  let h='';
+  for (const d of days()){
+    const open = openDays.has(d.key);
+    const span = d.nSessions>1 ? `${hhmm(d.firstTs)}–${hhmm(d.lastTs)}` : hhmm(d.firstTs);
+    let inner='';
+    for (const sess of [...d.sessions].reverse()){
+      const i = idxOf.get(sess), so = openSess.has(i);
+      const L = SLBL[sess.status] || ['?','n'];
+      let rows='', bal = sess.start;
+      (sess.trades||[]).forEach((t,ti)=>{
+        bal += (t.ret!=null ? t.ret : 0);
+        rows += `<tr><td>${t.ts?hhmm(t.ts):'—'}</td>`+
+                `<td><span class="pill pill-${t.result==='W'?'w':'l'}">${t.result==='W'?'C':'P'}</span></td>`+
+                `<td class="mono">${money(t.stake)}</td>`+
+                `<td class="mono ${cls(t.ret)}">${sgn(t.ret)}</td>`+
+                `<td class="mono">${money(bal)}</td></tr>`;
+      });
+      inner += `<div class="sub-grp${so?' open':''}">
+          <div class="sub-hd" data-act="toggleSess" data-i="${i}">
+            <span class="caret">▶</span>
+            <span class="ttl">Sesiunea ${sess.n} <span>· ${hhmm(sess.date)} · ${sess.wins}C/${sess.losses}P</span>
+              <span class="pill pill-${L[1]}" style="margin-left:5px">${L[0]}</span></span>
+            <span class="amt2 ${cls(sess.end-sess.start)}">${sgn(sess.end-sess.start)}</span>
+          </div>
+          <div class="sub-body">${rows
+            ? `<table class="trades-mini">${rows}</table>`
+            : '<div class="note" style="margin:4px 0">Fără tranzacții salvate.</div>'}</div>
+        </div>`;
+    }
+    h += `<div class="grp${open?' open':''}">
+        <div class="hd2" data-act="toggleDay" data-k="${d.key}">
+          <span class="caret">▶</span>
+          <span class="ttl"><b>${dayLabel(d.key)}${d.closed?' ✓':''}</b>
+            <span>${plural(d.nSessions,'sesiune','sesiuni')} · ${plural(d.wins+d.losses,'tranzacție','tranzacții')} · ${span}</span></span>
+          <span class="amt2 ${cls(d.pl)}">${sgn(d.pl)}</span>
+        </div>
+        <div class="body">${inner}</div>
+      </div>`;
   }
-  $('#logTbl').innerHTML = h+'</tbody>';
+  $('#logBox').innerHTML = h;
   $('#eqChart').innerHTML = equityChart();
 }
 
@@ -1040,7 +1324,7 @@ function addTrade(result){
   if (!isFinite(stake)||stake<=0) stake=row.suggested;
   stake=Math.min(stake, row.before);
   const c=cur();
-  c.trades.push({ result, stake, ret: result==='W' ? stake*S.settings.payout : -stake });
+  c.trades.push({ result, stake, ret: result==='W' ? stake*S.settings.payout : -stake, ts: Date.now() });
   dbSet('current', c); render();
 }
 function undo(){
@@ -1055,11 +1339,11 @@ function logSession(manual){
     n:c.n, date:Date.now(), start:c.startBalance, end:r.balance,
     N:st.N, K:st.K, payout:st.payout, slPct:st.slPct,
     goal:r.goal, stop:r.stopAt, wins:r.wins, losses:r.losses,
-    status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret}))
+    status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret,ts:t.ts}))
   });
   S.current = { startBalance:r.balance, trades:[], n:c.n+1 };   // auto-copy balance
   S.settings.cap = r.balance;
-  dbSet('log',{sessions:S.sessions}); dbSet('current',S.current); dbSet('settings',S.settings);
+  dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current); dbSet('settings',S.settings);
   note(manual ? 'Închisă și salvată' : 'Sesiune înregistrată'); render();
 }
 let resetArm=false;
@@ -1084,6 +1368,7 @@ function switchTab(t){
   document.querySelectorAll('section').forEach(sx=>sx.classList.toggle('on', sx.id==='tab-'+t));
   if (t==='a') renderAnalysis();
   if (t==='j') renderJournal();
+  if (t==='z') renderDays();
   if (t==='c') renderFit();
   try{ window.scrollTo(0,0); }catch(e){}
 }
@@ -1096,7 +1381,7 @@ function bump(key, d){
 }
 function doExport(){
   const payload=JSON.stringify({ v:1, exported:new Date().toISOString(),
-    settings:S.settings, current:S.current, sessions:S.sessions }, null, 1);
+    settings:S.settings, current:S.current, sessions:S.sessions, dayMeta:S.dayMeta }, null, 1);
   $('#importBox').style.display='block'; $('#impTxt').value=payload;
   if (navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(payload).then(()=>note('Backup copiat'),()=>note('Copiaz\u0103 textul de jos'));
@@ -1108,8 +1393,9 @@ function doImport(){
     if (!d||typeof d!=='object') throw 0;
     if (d.settings) S.settings=normSettings(d.settings);
     S.sessions=normSessions(d.sessions);
+    S.dayMeta=normDayMeta(d.dayMeta);
     S.current=normCurrent(d.current, S.settings.cap, S.sessions.length+1);
-    dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions}); dbSet('current',S.current);
+    dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current);
     $('#importBox').style.display='none'; note('Import re\u0219it'); render();
   }catch(e){ note('JSON invalid'); }
 }
@@ -1117,14 +1403,36 @@ function doWipe(){
   const b=$('#bWipe');
   if (!wipeArm){ wipeArm=true; b.textContent='Sigur? Apas\u0103 din nou';
     setTimeout(()=>{wipeArm=false;b.textContent='\u0218terge tot jurnalul';},4000); return; }
-  S.sessions=[]; S.current={startBalance:S.settings.cap,trades:[],n:1};
-  dbSet('log',{sessions:[]}); dbSet('current',S.current);
+  S.sessions=[]; S.dayMeta={}; S.current={startBalance:S.settings.cap,trades:[],n:1};
+  dbSet('log',{sessions:[], dayMeta:{}}); dbSet('current',S.current);
   wipeArm=false; b.textContent='\u0218terge tot jurnalul'; note('Jurnal \u0219ters'); render();
 }
 const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
+  endDay:()=>{
+    const k=todayKey(), d=days().find(x=>x.key===k);
+    if (!d) return note('Nicio sesiune ast\u0103zi');
+    S.dayMeta[k] = {...(S.dayMeta[k]||{}), closed:true, closedAt:Date.now()};
+    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    note('Zi \u00eencheiat\u0103: '+sgn(d.pl)); render();
+  },
+  reopenDay:()=>{
+    const k=todayKey();
+    S.dayMeta[k] = {...(S.dayMeta[k]||{}), closed:false, closedAt:null};
+    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    note('Zi redeschis\u0103'); render();
+  },
+  toggleDay:(el)=>{ const k=el.dataset.k;
+    openDays.has(k) ? openDays.delete(k) : openDays.add(k); renderJournal(); },
+  toggleSess:(el)=>{ const i=Number(el.dataset.i);
+    openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
+  pickDay:(el)=>{ calSel = (calSel===el.dataset.k) ? null : el.dataset.k; renderCalendar(); },
+  calPrev:()=>{ const [Y,M]=calMonth.split('-').map(Number); const d=new Date(Y,M-2,1);
+    calMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); calSel=null; renderCalendar(); },
+  calNext:()=>{ const [Y,M]=calMonth.split('-').map(Number); const d=new Date(Y,M,1);
+    calMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); calSel=null; renderCalendar(); },
   pickNK:(el)=>{
     const N=Number(el.dataset.n), K=Number(el.dataset.k);
     if (!(N>=2&&N<=60&&K>=1&&K<N)) return;
@@ -1174,7 +1482,14 @@ const SETTINGS_MAP = {
   dgFmt:['dgFmt', v=>v],
 };
 document.addEventListener('change', function(e){
-  const el=e.target; if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
+  const el=e.target;
+  if (el && el.dataset && el.dataset.day && el.dataset.field){
+    const k=el.dataset.day, f=el.dataset.field;
+    S.dayMeta[k] = {...(S.dayMeta[k]||{}), [f]: String(el.value||'').slice(0,300)};
+    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    renderDays(); return;
+  }
+  if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
   const [key,xf]=SETTINGS_MAP[el.id];
   try{
     const v=xf(el.value); if (v===null){ renderSettings(); return note('Valoare invalid\u0103'); }
@@ -1206,15 +1521,15 @@ function render_(){
   const r=calc();
   renderHeader(r); renderBanner(r); renderNext(r);
   renderTarget(r); renderTrades(r); renderDaily(r);
-  renderJournal(); renderSettings();
+  renderJournal(); renderDays(); renderSettings();
   const act=document.querySelector('nav button.on');
   if (act && act.dataset.t==='a') renderAnalysis();
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 11 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 13 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 11 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 13 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -1247,7 +1562,7 @@ render();   // paint immediately with defaults / localStorage
 (async()=>{
   const ls={ settings:LS.get('settings'), current:LS.get('current'), log:LS.get('log') };
   if (ls.settings) S.settings=normSettings(ls.settings);
-  if (ls.log) S.sessions=normSessions(ls.log.sessions);
+  if (ls.log){ S.sessions=normSessions(ls.log.sessions); S.dayMeta=normDayMeta(ls.log.dayMeta); }
   if (ls.current) S.current=normCurrent(ls.current, S.settings.cap, S.sessions.length+1);
   render();
 
@@ -1259,7 +1574,7 @@ render();   // paint immediately with defaults / localStorage
       uid=await u.id(); db=d;
       const [cfg,cu,lg]=await Promise.all([dbGet('settings'),dbGet('current'),dbGet('log')]);
       if (cfg) S.settings=normSettings(cfg);
-      if (lg) S.sessions=normSessions(lg.sessions);
+      if (lg){ S.sessions=normSessions(lg.sessions); S.dayMeta=normDayMeta(lg.dayMeta); }
       if (cu) S.current=normCurrent(cu, S.settings.cap, S.sessions.length+1);
       $('#syncMsg').textContent='Date sincronizate · jurnal privat';
       render(); renderSettings();
