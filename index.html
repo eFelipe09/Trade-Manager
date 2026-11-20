@@ -655,7 +655,11 @@ function monthsWithData(){
 function monthStats(mk){
   const ss=S.sessions.filter(x=>monthKey(x.date)===mk);
   let w=0,l=0;
-  for (const s of ss) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
+  for (const s of ss){
+    const tr=s.trades||[];
+    if (tr.length) for (const t of tr) (t.result==='W'?w++:l++);
+    else { w += Number(s.wins)||0; l += Number(s.losses)||0; }   // imported day
+  }
   if (mk===thisMonth()) for (const t of ((S.current&&S.current.trades)||[])) (t.result==='W'?w++:l++);
   const dayset=new Set(ss.map(x=>dayKey(x.date)));
   const pl=ss.reduce((a,x)=>a+(x.end-x.start),0);
@@ -700,7 +704,11 @@ function days(){
     ss.sort((a,b)=>a.date-b.date);
     const meta = S.dayMeta[k] || {};
     let w=0,l=0;
-    for (const s of ss) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
+    for (const s of ss){
+      const tr=s.trades||[];
+      if (tr.length) for (const t of tr) (t.result==='W'?w++:l++);
+      else { w += Number(s.wins)||0; l += Number(s.losses)||0; }  // imported day
+    }
     out.push({ key:k, sessions:ss, meta,
       start: ss[0].start, end: ss[ss.length-1].end,
       pl: ss[ss.length-1].end - ss[0].start,
@@ -760,6 +768,8 @@ function money(x, dp){
   return (neg?'-':'') + wrap(n(v, d));
 }
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+// Romanian puts "de" before a noun when the last two digits are 00 or 20-99
+const nr = n => { const t=n%100; return n.toLocaleString('ro-RO') + ((t===0||t>=20) ? ' de ' : ' '); };
 const wipeBtn = () => !S.sessions.length ? '' :
   `<div class="card wipebar"><button class="btn ${delArm==='all'?'btn-l':'btn-g'}" data-act="clearAll" style="width:100%">
      ${delArm==='all'
@@ -1182,7 +1192,7 @@ function renderMonthTable(){
       <td><b>Total</b></td><td class="mono muted">${tot.d}</td><td class="mono muted">${tot.s}</td>
       <td class="mono muted">${tot.n}</td>
       <td class="mono ${tot.n?(tot.w/tot.n>=be?'up':'down'):'muted'}">${tot.n?pct(tot.w/tot.n,1):'—'}</td>
-      <td class="mono ${cls(tot.pl)}">${tot.n?sgn(tot.pl):'—'}</td></tr>`;
+      <td class="mono ${cls(tot.pl)}">${tot.s?sgn(tot.pl):'—'}</td></tr>`;
   $('#monTbl').innerHTML=h+'</tbody>';
 }
 
@@ -1227,7 +1237,16 @@ function renderAnalysis(){
   $('#aConf').innerHTML = `Interval de încredere 95% pentru rata ta reală: <b>${pct(loCI,1)} – ${pct(hiCI,1)}</b>. `+
     (hiCI<be ? 'Întregul interval e sub prag — datele indică deja un dezavantaj.'
      : loCI>be ? 'Întregul interval e peste prag — ai un avantaj statistic real.'
-     : `Pragul de ${pct(be,2)} se află în interval, deci ${ts.n} tranzacții nu sunt încă suficiente ca să știi dacă ai un avantaj. Îți trebuie câteva sute.`);
+     : (()=>{
+         const d=Math.abs(p-be);
+         // n needed for the 95% margin to fall inside the current edge
+         const need = d>1e-6 ? Math.ceil(p*(1-p)*Math.pow(z/d,2)) : Infinity;
+         const more = need-n;
+         return `Pragul de ${pct(be,2)} se află în interval, deci ${nr(n)}tranzacții nu sunt încă de ajuns ca să știi dacă ai un avantaj. `+
+           (isFinite(need) && more>0
+             ? `La rata asta ar fi nevoie de vreo ${nr(need)}tranzacții în total — încă ${more.toLocaleString('ro-RO')}.`
+             : `Rata e prea aproape de prag ca diferența să poată fi distinsă.`);
+       })());
 
   $('#aVerdict').innerHTML = edge>=0
     ? `Ești cu ${(edge*100).toFixed(2)} puncte peste prag. Verifică intervalul de încredere mai jos înainte să tragi concluzii.`
@@ -1539,7 +1558,7 @@ function doImport(){
     S.dayMeta=normDayMeta(d.dayMeta);
     S.current=normCurrent(d.current, S.settings.cap, sessionsToday()+1);
     dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current);
-    $('#importBox').style.display='none'; note('Import re\u0219it'); render();
+    $('#importBox').style.display='none'; note('Import reu\u0219it'); render();
   }catch(e){ note('JSON invalid'); }
 }
 function doWipe(){
@@ -1719,9 +1738,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 20 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 23 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 20 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 23 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
