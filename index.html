@@ -625,6 +625,7 @@ const TIMEFRAMES = ['5s','15s','30s','1m','2m','5m'];
 const dayKey = ts => { const d=new Date(ts);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const todayKey = () => dayKey(Date.now());
+const sessionsToday = () => { const k=todayKey(); return S.sessions.filter(x=>dayKey(x.date)===k).length; };
 const hhmm = ts => (ts==null||!isFinite(ts)) ? '' :
   new Date(ts).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});
 const dayLabel = k => {
@@ -769,9 +770,11 @@ function normSessions(arr){
       trades: Array.isArray(x.trades) ? x.trades : [] }));
 }
 function cur(){
-  const fixed = normCurrent(S.current, S.settings.cap, S.sessions.length+1);
-  if (!fixed) S.current = { startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+  const next = sessionsToday()+1;
+  const fixed = normCurrent(S.current, S.settings.cap, next);
+  if (!fixed) S.current = { startBalance:S.settings.cap, trades:[], n:next };
   else S.current = fixed;
+  S.current.n = next;          // numbering is per day, not a running total
   return S.current;
 }
 function calc(){
@@ -1046,6 +1049,7 @@ function renderJournal(){
     const open = openDays.has(d.key);
     const span = d.nSessions>1 ? `${hhmm(d.firstTs)}–${hhmm(d.lastTs)}` : hhmm(d.firstTs);
     let inner='';
+    const ord = new Map(d.sessions.map((x,ix)=>[x,ix+1]));   // position within the day
     for (const sess of [...d.sessions].reverse()){
       const i = idxOf.get(sess), so = openSess.has(i);
       const L = SLBL[sess.status] || ['?','n'];
@@ -1061,7 +1065,7 @@ function renderJournal(){
       inner += `<div class="sub-grp${so?' open':''}">
           <div class="sub-hd" data-act="toggleSess" data-i="${i}">
             <span class="caret">▶</span>
-            <span class="ttl">Sesiunea ${sess.n} <span>· ${hhmm(sess.date)} · ${sess.wins}C/${sess.losses}P</span>
+            <span class="ttl">Sesiunea ${ord.get(sess)} <span>· ${hhmm(sess.date)} · ${sess.wins}C/${sess.losses}P</span>
               <span class="pill pill-${L[1]}" style="margin-left:5px">${L[0]}</span></span>
             <span class="amt2 ${cls(sess.end-sess.start)}">${sgn(sess.end-sess.start)}</span>
             <button class="del${delArm==='sess:'+i?' arm':''}" data-act="delSess" data-i="${i}">${delArm==='sess:'+i?'sigur?':'✕'}</button>
@@ -1412,7 +1416,7 @@ function logSession(manual){
     goal:r.goal, stop:r.stopAt, wins:r.wins, losses:r.losses,
     status, trades:c.trades.map(t=>({result:t.result,stake:t.stake,ret:t.ret,ts:t.ts}))
   });
-  S.current = { startBalance:r.balance, trades:[], n:c.n+1 };   // auto-copy balance
+  S.current = { startBalance:r.balance, trades:[], n:sessionsToday()+1 };   // auto-copy balance
   S.settings.cap = r.balance;
   dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current); dbSet('settings',S.settings);
   note(manual ? 'Închisă și salvată' : 'Sesiune înregistrată'); render();
@@ -1426,7 +1430,7 @@ function resetSession(){
     return;
   }
   resetArm=false; b.textContent='Sesiune nouă';
-  S.current={ startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+  S.current={ startBalance:S.settings.cap, trades:[], n:sessionsToday()+1 };
   dbSet('current',S.current); render();
 }
 
@@ -1437,6 +1441,7 @@ function resetSession(){
 function switchTab(t){
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
   document.querySelectorAll('section').forEach(sx=>sx.classList.toggle('on', sx.id==='tab-'+t));
+  if (t==='s') render();
   if (t==='a') renderAnalysis();
   if (t==='j') renderJournal();
   if (t==='z') renderDays();
@@ -1472,7 +1477,7 @@ function doImport(){
     if (d.settings) S.settings=normSettings(d.settings);
     S.sessions=normSessions(d.sessions);
     S.dayMeta=normDayMeta(d.dayMeta);
-    S.current=normCurrent(d.current, S.settings.cap, S.sessions.length+1);
+    S.current=normCurrent(d.current, S.settings.cap, sessionsToday()+1);
     dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current);
     $('#importBox').style.display='none'; note('Import re\u0219it'); render();
   }catch(e){ note('JSON invalid'); }
@@ -1498,7 +1503,7 @@ const ACTS = {
       return;
     }
     clearTimeout(capArmTimer); capArm = false;
-    S.current = { startBalance:S.settings.cap, trades:[], n:S.sessions.length+1 };
+    S.current = { startBalance:S.settings.cap, trades:[], n:sessionsToday()+1 };
     dbSet('current',S.current);
     note('Capital aplicat: '+money(S.settings.cap)); render();
   },
@@ -1651,9 +1656,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 18 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 19 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 18 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 19 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -1681,13 +1686,21 @@ if ('serviceWorker' in navigator){
   });
 }
 
+let seenDay = todayKey();
+function checkRollover(){
+  const k = todayKey();
+  if (k !== seenDay){ seenDay = k; calSel = null; calMonth = null; render(); }
+}
+setInterval(checkRollover, 60000);
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') checkRollover(); });
+
 render();   // paint immediately with defaults / localStorage
 
 (async()=>{
   const ls={ settings:LS.get('settings'), current:LS.get('current'), log:LS.get('log') };
   if (ls.settings) S.settings=normSettings(ls.settings);
   if (ls.log){ S.sessions=normSessions(ls.log.sessions); S.dayMeta=normDayMeta(ls.log.dayMeta); }
-  if (ls.current) S.current=normCurrent(ls.current, S.settings.cap, S.sessions.length+1);
+  if (ls.current) S.current=normCurrent(ls.current, S.settings.cap, sessionsToday()+1);
   render();
 
   let timedOut=false; const timer=setTimeout(()=>{timedOut=true;},10000);
@@ -1699,7 +1712,7 @@ render();   // paint immediately with defaults / localStorage
       const [cfg,cu,lg]=await Promise.all([dbGet('settings'),dbGet('current'),dbGet('log')]);
       if (cfg) S.settings=normSettings(cfg);
       if (lg){ S.sessions=normSessions(lg.sessions); S.dayMeta=normDayMeta(lg.dayMeta); }
-      if (cu) S.current=normCurrent(cu, S.settings.cap, S.sessions.length+1);
+      if (cu) S.current=normCurrent(cu, S.settings.cap, sessionsToday()+1);
       $('#syncMsg').textContent='Date sincronizate · jurnal privat';
       render(); renderSettings();
     } else {
