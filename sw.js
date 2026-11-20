@@ -1,5 +1,5 @@
 /* Trade Manager — offline cache. Bump CACHE on every deploy. */
-const CACHE = 'tm-v38';
+const CACHE = 'tm-v40';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png'
@@ -25,7 +25,10 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) {
     // the Firebase SDK is versioned and immutable, so cache it: the app then
     // opens and signs in from cache when the connection is poor or absent.
-    if (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) {
+    const cacheable =
+      (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) ||
+      url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+    if (cacheable) {
       e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
         if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
         return res;

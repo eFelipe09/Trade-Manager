@@ -11,14 +11,19 @@
   var p='auto', d='registru';
   try{ p = JSON.parse(localStorage.getItem('tm_theme')) || 'auto'; }catch(e){}
   try{ d = JSON.parse(localStorage.getItem('tm_design')) || 'registru'; }catch(e){}
-  if (d!=='original') d='registru';
-  var dark = d==='original' || p==='dark' || (p==='auto' &&
-    window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  var FIX = { original:'dark', luxury:'dark', certificat:'light' };
+  var BAR = { registru:{light:'#F7F4EE',dark:'#121110'}, original:{dark:'#0b0e13'},
+              luxury:{dark:'#0A0A0B'}, certificat:{light:'#F4EFE2'} };
+  if (!Object.prototype.hasOwnProperty.call(BAR, d)) d='registru';
+  var fix = Object.prototype.hasOwnProperty.call(FIX, d) ? FIX[d] : null;
+  var dark = fix ? fix==='dark'
+    : (p==='dark' || (p==='auto' && window.matchMedia &&
+       matchMedia('(prefers-color-scheme: dark)').matches));
   var r=document.documentElement;
   r.dataset.design = d;
   r.dataset.theme = dark ? 'dark' : 'light';
   var m=document.querySelector('meta[name="theme-color"]');
-  if(m) m.setAttribute('content', d==='original' ? '#0b0e13' : (dark ? '#121110' : '#F7F4EE'));
+  if(m) m.setAttribute('content', BAR[d][dark?'dark':'light'] || '#F7F4EE');
 })();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -31,7 +36,7 @@
 <title>Trade Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Cormorant+Garamond:wght@300;400;500&family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Registru: hârtie caldă, cerneală închisă, linii subțiri. Verdele-petrol
@@ -99,8 +104,10 @@ header{
 .themeBtn:active{background:var(--press)}
 .themeBtn svg{width:17px;height:17px;display:block}
 .seg{display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
-.seg button{flex:1;background:transparent;border:0;border-radius:8px;padding:8px 6px;cursor:pointer;
+.seg{flex-wrap:wrap}
+.seg button{flex:1 1 44%;background:transparent;border:0;border-radius:8px;padding:9px 6px;cursor:pointer;
   font:600 12.5px Inter,sans-serif;color:var(--dim)}
+#themeSeg button{flex:1 1 0}
 .seg button.on{background:var(--txt);color:var(--bg)}
 .bal{flex:1;min-width:0}
 .bal .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
@@ -153,7 +160,7 @@ section.on{display:block}
 .next .req{white-space:nowrap;text-align:right;line-height:1.2}
 .next .req .rl{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--faint);font-weight:700;margin-bottom:3px}
-.next .req b{font:600 18px var(--mono);font-variant-numeric:tabular-nums;color:var(--txt)}
+.next .req b{font-weight:600;font-size:18px;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--txt)}
 .next .req b .sep{color:var(--faint);font-weight:400;padding:0 3px}
 /* numărul: în timpul sesiunii e singurul lucru la care te uiți */
 .stake{display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:4px}
@@ -174,7 +181,7 @@ section.on{display:block}
 .step button{flex:0 0 46px;background:transparent;border:0;color:var(--dim);font:400 21px Inter,sans-serif;padding:6px 0;cursor:pointer;line-height:1.2}
 .step button:active{background:var(--press);color:var(--txt)}
 .step button:disabled{opacity:.25;cursor:default}
-.step span{flex:1;text-align:center;font:700 17px var(--mono);color:var(--txt)}
+.step span{flex:1;text-align:center;font-weight:700;font-size:17px;font-family:var(--mono);color:var(--txt)}
 .fit{max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
 .fit table{width:100%;border-collapse:collapse;font-size:13px}
 .fit th{position:sticky;top:0;background:var(--panel);text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:5px 7px;border-bottom:1px solid var(--line)}
@@ -198,7 +205,7 @@ section.on{display:block}
 .grp .ttl{flex:1;min-width:0}
 .grp .ttl b{display:block;font-size:14px;font-weight:600}
 .grp .ttl span{font-size:11.5px;color:var(--faint)}
-.grp .amt2{font:700 15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp .amt2{font-weight:700;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .grp .body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
 .grp.open .body{display:block}
 .sub-grp{border-top:1px solid var(--hair)}
@@ -231,7 +238,7 @@ section.on{display:block}
 .cal .cell.has:active{filter:brightness(.96)}
 .cal .cell.blank{border-color:transparent;background:transparent}
 .cal .cell .n{font-size:9px;color:var(--faint);font-weight:700;line-height:1}
-.cal .cell .v{font:700 10px var(--mono);line-height:1.15;text-align:right;word-break:break-all}
+.cal .cell .v{font-weight:700;font-size:10px;font-family:var(--mono);line-height:1.15;text-align:right;word-break:break-all}
 .cal .cell .s{font-size:8px;color:var(--faint);text-align:right;line-height:1.1}
 .cal .cell.win{background:var(--win-bg);border-color:var(--win-br)}
 .cal .cell.win .v{color:var(--win)}
@@ -242,7 +249,7 @@ section.on{display:block}
 .caldet{margin-top:11px}
 input,select{
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-  border-radius:9px;padding:8px 10px;font:600 14px var(--mono);
+  border-radius:9px;padding:8px 10px;font-weight:600;font-size:14px;font-family:var(--mono);
   width:100%;min-width:0;
 }
 input:focus,select:focus{outline:none;border-color:var(--accent)}
@@ -293,7 +300,7 @@ select{font-family:Inter,sans-serif}
 .fld label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:4px}
 textarea{
   width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-  border-radius:9px;padding:9px;font:500 11.5px var(--mono);min-height:80px;resize:vertical;
+  border-radius:9px;padding:9px;font-weight:500;font-size:11.5px;font-family:var(--mono);min-height:80px;resize:vertical;
 }
 svg{display:block;width:100%;height:auto}
 .toast{
@@ -346,6 +353,7 @@ svg{display:block;width:100%;height:auto}
 :root[data-design="original"] .next .btns .btn{padding:13px 10px;font-size:15px;border-radius:11px}
 :root[data-design="original"] .btn-w{color:#06231A}
 :root[data-design="original"] .btn-l{background:#D13036;color:#fff;box-shadow:none}
+:root[data-design="original"] .btn-a{background:#2F6FE0}
 :root[data-design="original"] .btn:active{filter:brightness(.86)}
 :root[data-design="original"] .cal .cell.has:active{filter:brightness(1.25)}
 :root[data-design="original"] .gmark{background:var(--warn);width:2px}
@@ -354,6 +362,108 @@ svg{display:block;width:100%;height:auto}
   :root[data-design="original"] .stake{flex-direction:column;align-items:flex-start;gap:5px}
   :root[data-design="original"] .stake .amt{font-size:46px}
 }
+
+/* ============================================================
+   DESIGN: LUXURY
+   Negru cu aur, dar aurul apare în patru locuri, nu peste tot:
+   P/L-ul pozitiv, filetul, colțarele mizei și butonul de câștig.
+   Cifrele mari sunt cu serife; tabelele rămân monospaced, altfel
+   coloanele nu se mai aliniază.
+   ============================================================ */
+:root[data-design="luxury"]{
+  --bg:#0A0A0B; --panel:#111013; --panel2:#19181A; --line:#27251F;
+  --txt:#F2EEE4; --dim:#B3AA98; --faint:#9A9282;
+  --win:#C8A54A; --loss:#E09288; --warn:#D7B45E; --accent:#C8A54A;
+  --win-v:#C8A54A; --loss-v:#C45A4E; --warn-v:#D7B45E;
+  --on-solid:#14110A;
+  --win-bg:rgba(200,165,74,.13);  --win-br:rgba(200,165,74,.40);
+  --loss-bg:rgba(196,90,78,.14);  --loss-br:rgba(196,90,78,.40);
+  --warn-bg:rgba(215,180,94,.12); --warn-br:rgba(215,180,94,.34);
+  --acc-bg:rgba(200,165,74,.12);  --acc-br:rgba(200,165,74,.34);
+  --hair:rgba(242,238,228,.09); --press:rgba(242,238,228,.06);
+  --neutral-bg:rgba(154,146,130,.16);
+  --on-win:#EAD69B; --on-warn:#EFDCA6; --on-loss:#F3C3BB; --on-info:#EAD69B;
+  --bg-blur:rgba(10,10,11,.95); --shadow:rgba(0,0,0,.55);
+}
+:root[data-design="luxury"] .bal .val,
+:root[data-design="luxury"] .pl .mono,
+:root[data-design="luxury"] .stake .amt,
+:root[data-design="luxury"] .big,
+:root[data-design="luxury"] .next .req b{
+  font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;letter-spacing:0;
+}
+:root[data-design="luxury"] .stake .amt{font-weight:300;font-size:72px}
+:root[data-design="luxury"] .card > h2,
+:root[data-design="luxury"] .kv .k,
+:root[data-design="luxury"] .fld label,
+:root[data-design="luxury"] .next .req .rl{letter-spacing:.22em;font-weight:500}
+:root[data-design="luxury"] .next .no{letter-spacing:.1em}
+/* colțare de bijutier în loc de chenar */
+:root[data-design="luxury"] .next{
+  background:transparent;border:0;border-radius:0;padding:4px 2px 16px;margin:6px 2px 14px;
+}
+/* colțare de bijutier, strânse în jurul numărului */
+:root[data-design="luxury"] .stake{
+  position:relative;padding:22px 10px 20px;margin:14px 0 2px;
+}
+:root[data-design="luxury"] .stake::before,
+:root[data-design="luxury"] .stake::after{
+  content:'';position:absolute;width:15px;height:15px;border:0 solid var(--accent);
+}
+:root[data-design="luxury"] .stake::before{left:0;top:0;border-left-width:1px;border-top-width:1px}
+:root[data-design="luxury"] .stake::after{right:0;bottom:0;border-right-width:1px;border-bottom-width:1px}
+:root[data-design="luxury"] .segs i{height:5px;border-radius:50%;flex:0 0 5px;margin:0 auto}
+:root[data-design="luxury"] .segs{gap:6px;justify-content:flex-start}
+:root[data-design="luxury"] .btn{border-radius:0;font-weight:500}
+:root[data-design="luxury"] .btn-w,:root[data-design="luxury"] .btn-l{letter-spacing:.26em;font-size:12.5px}
+:root[data-design="luxury"] .btn-l{background:transparent;color:var(--loss);box-shadow:inset 0 0 0 1px #4A2B26}
+:root[data-design="luxury"] input,:root[data-design="luxury"] select,
+:root[data-design="luxury"] textarea{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0}
+
+/* ============================================================
+   DESIGN: CERTIFICAT
+   Hârtie de valoare: guilloche fin în fundal, bordură dublă pe
+   carduri, cifre gravate, bordo și verde de registru.
+   ============================================================ */
+:root[data-design="certificat"]{
+  --bg:#F4EFE2; --panel:#FAF6EC; --panel2:#EDE6D6; --line:#D9CFB8;
+  --txt:#1A1A18; --dim:#4A453C; --faint:#6B6457;
+  --win:#2F5D3F; --loss:#7B2231; --warn:#7A5410; --accent:#7B2231;
+  --win-v:#2F5D3F; --loss-v:#9B2B3C; --warn-v:#9A6A14;
+  --on-solid:#F4EFE2;
+  --win-bg:rgba(47,93,63,.12);  --win-br:rgba(47,93,63,.36);
+  --loss-bg:rgba(123,34,49,.11); --loss-br:rgba(123,34,49,.36);
+  --warn-bg:rgba(122,84,16,.11); --warn-br:rgba(122,84,16,.32);
+  --acc-bg:rgba(123,34,49,.10);  --acc-br:rgba(123,34,49,.30);
+  --hair:rgba(26,26,24,.14); --press:rgba(26,26,24,.06);
+  --neutral-bg:rgba(107,100,87,.16);
+  --on-win:#1E3F2A; --on-warn:#5A3D0A; --on-loss:#5E1824; --on-info:#1E3F2A;
+  --bg-blur:rgba(244,239,226,.95); --shadow:rgba(26,26,24,.18);
+}
+:root[data-design="certificat"] .bal .val,
+:root[data-design="certificat"] .pl .mono,
+:root[data-design="certificat"] .stake .amt,
+:root[data-design="certificat"] .big,
+:root[data-design="certificat"] .kv .v,
+:root[data-design="certificat"] .next .req b{
+  font-family:'EB Garamond',Georgia,serif;font-weight:500;letter-spacing:.01em;
+}
+:root[data-design="certificat"] .stake .amt{font-weight:400;font-size:62px}
+:root[data-design="certificat"] .card{
+  border:1.5px solid var(--loss);border-radius:4px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 3.5px rgba(123,34,49,.45);
+  padding:17px;
+}
+:root[data-design="certificat"] .card > h2{letter-spacing:.3em;color:var(--loss);font-weight:700}
+:root[data-design="certificat"] .kv{background:transparent;border-bottom:1px dotted rgba(26,26,24,.35);border-radius:0;padding:8px 2px}
+:root[data-design="certificat"] .next{border:0;border-top:1px solid rgba(26,26,24,.3);border-bottom:1px solid rgba(26,26,24,.3);
+  border-radius:0;background:transparent;padding:20px 4px 18px;margin:4px 2px 14px}
+:root[data-design="certificat"] .segs i{height:3px;border-radius:0}
+:root[data-design="certificat"] .btn{border-radius:2px;font-weight:600}
+:root[data-design="certificat"] .btn-w,:root[data-design="certificat"] .btn-l{letter-spacing:.22em;font-size:12.5px}
+:root[data-design="certificat"] .btn-l{background:transparent;color:var(--loss);box-shadow:inset 0 0 0 1.5px var(--loss)}
+:root[data-design="certificat"] input,:root[data-design="certificat"] select,
+:root[data-design="certificat"] textarea{background:var(--panel);border-radius:2px;font-family:'EB Garamond',Georgia,serif;font-size:16px}
+:root[data-design="certificat"] .tbl td{border-bottom:1px dotted rgba(26,26,24,.3)}
 
 /* ============================================================
    CALCULATOR
@@ -661,6 +771,8 @@ svg{display:block;width:100%;height:auto}
     <div class="seg" id="designSeg">
       <button data-act="designSet" data-v="registru">Registru</button>
       <button data-act="designSet" data-v="original">Original</button>
+      <button data-act="designSet" data-v="luxury">Luxury</button>
+      <button data-act="designSet" data-v="certificat">Certificat</button>
     </div>
     <div class="note" id="designNote"></div>
   </div>
@@ -2430,9 +2542,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 38 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 40 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 38 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 40 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -2482,10 +2594,24 @@ const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
   '<path d="M20.5 14.3A8.6 8.6 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8z"/></svg>';
 const mqDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 const themePref = () => { const v = LS.get('theme'); return (v==='dark'||v==='light') ? v : 'auto'; };
-const designPref = () => (LS.get('design')==='original' ? 'original' : 'registru');
-const isDark = () => { if (designPref()==='original') return true;   // Original e doar întunecat
+const DESIGNS = {
+  registru:   { nume:'Registru',   fix:null,
+    nota:'Hârtie caldă, cifre IBM Plex Mono, bandă de segmente pe sesiune. Merge și deschis, și închis.' },
+  original:   { nume:'Original',   fix:'dark',
+    nota:'Prima versiune: bleumarin, accent albastru, JetBrains Mono. Are doar variantă întunecată.' },
+  luxury:     { nume:'Luxury',     fix:'dark',
+    nota:'Negru cu aur, colțare de bijutier în jurul mizei, cifre cu serife. Doar variantă întunecată.' },
+  certificat: { nume:'Certificat', fix:'light',
+    nota:'Hârtie de valoare: bordură dublă bordo, cifre gravate, verde de registru. Doar variantă deschisă.' }
+};
+const hasDesign = v => typeof v === 'string' && Object.prototype.hasOwnProperty.call(DESIGNS, v);
+const designPref = () => { const v = LS.get('design'); return hasDesign(v) ? v : 'registru'; };
+const isDark = () => { const fix = DESIGNS[designPref()].fix;
+  if (fix) return fix==='dark';                       // designul își impune schema
   const p = themePref();
   return p==='dark' || (p==='auto' && !!(mqDark && mqDark.matches)); };
+const BARS = { registru:{light:'#F7F4EE',dark:'#121110'}, original:{dark:'#0b0e13'},
+               luxury:{dark:'#0A0A0B'}, certificat:{light:'#F4EFE2'} };
 
 function applyTheme(){
   const dark = isDark(), dz = designPref();
@@ -2493,10 +2619,10 @@ function applyTheme(){
   r.dataset.design = dz;
   r.dataset.theme = dark ? 'dark' : 'light';
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.setAttribute('content', dz==='original' ? '#0b0e13' : (dark ? '#121110' : '#F7F4EE'));
+  if (m) m.setAttribute('content', (BARS[dz]||BARS.registru)[dark?'dark':'light'] || '#F7F4EE');
   const b = $('#bTheme');
   if (b){
-    b.style.display = dz==='original' ? 'none' : '';   // Original nu are variantă deschisă
+    b.style.display = DESIGNS[dz].fix ? 'none' : '';   // un design cu schemă fixă n-are ce comuta
     b.innerHTML = dark ? SUN : MOON;
     b.setAttribute('aria-label', dark ? 'Treci pe tema deschisă' : 'Treci pe tema închisă');
     b.setAttribute('title', b.getAttribute('aria-label'));
@@ -2509,11 +2635,9 @@ function renderThemeCard(){
   if (dseg){
     [...dseg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===dz));
     const dn = $('#designNote');
-    if (dn) dn.textContent = dz==='original'
-      ? 'Prima versiune: bleumarin, accent albastru, JetBrains Mono. Are doar variantă întunecată.'
-      : 'Hârtie caldă, cifre IBM Plex Mono, bandă de segmente pe sesiune. Merge și deschis, și închis.';
+    if (dn) dn.textContent = DESIGNS[dz].nota;
   }
-  const card = $('#themeCard'); if (card) card.style.display = dz==='original' ? 'none' : '';
+  const card = $('#themeCard'); if (card) card.style.display = DESIGNS[dz].fix ? 'none' : '';
   const seg = $('#themeSeg'); if (!seg) return;
   const p = themePref();
   [...seg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===p));
@@ -2523,7 +2647,7 @@ function renderThemeCard(){
     : 'Fixată pe tema ' + (p==='dark'?'închisă':'deschisă') + ', indiferent de sistem.';
 }
 function setTheme(v){ LS.set('theme', v); applyTheme(); }
-function setDesign(v){ LS.set('design', v==='original' ? 'original' : 'registru'); applyTheme(); render(); }
+function setDesign(v){ LS.set('design', hasDesign(v) ? v : 'registru'); applyTheme(); render(); }
 if (mqDark){
   const onSys = () => { if (themePref()==='auto') applyTheme(); };
   if (mqDark.addEventListener) mqDark.addEventListener('change', onSys);
