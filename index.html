@@ -352,6 +352,13 @@ svg{display:block;width:100%;height:auto}
 <!-- ================= ANALIZĂ ================= -->
 <section id="tab-a">
   <div class="card">
+    <div class="calhd" style="margin:0">
+      <button data-act="anPrev">‹</button><b id="anTitle">—</b><button data-act="anNext">›</button>
+    </div>
+    <div class="note" id="anRange" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
     <h2>Rata ta de câștig vs. prag de rentabilitate</h2>
     <div class="big mono" id="aWr">—<span class="u"> %</span></div>
     <div class="note" id="aWrSub" style="margin-top:2px"></div>
@@ -394,6 +401,12 @@ svg{display:block;width:100%;height:auto}
     <div id="escChart"></div>
     <div class="note" id="escNote"></div>
   </div>
+  <div class="card">
+    <h2>Agendă lunară</h2>
+    <div class="note" style="margin:0 0 9px">Apasă o lună ca să i te uiți la analiză.</div>
+    <div class="scroll"><table class="tbl" id="monTbl"></table></div>
+  </div>
+
   <div id="aWipe"></div>
 </section>
 
@@ -626,6 +639,32 @@ const dayKey = ts => { const d=new Date(ts);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const todayKey = () => dayKey(Date.now());
 const sessionsToday = () => { const k=todayKey(); return S.sessions.filter(x=>dayKey(x.date)===k).length; };
+const monthKey = ts => dayKey(ts).slice(0,7);
+const thisMonth = () => monthKey(Date.now());
+const monthLabel = mk => { const [Y,M]=mk.split('-').map(Number);
+  const s=new Date(Y,M-1,1).toLocaleDateString('ro-RO',{month:'long',year:'numeric'});
+  return s.charAt(0).toUpperCase()+s.slice(1); };
+const shiftMonth = (mk,d) => { const [Y,M]=mk.split('-').map(Number); const x=new Date(Y,M-1+d,1);
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'); };
+/* Every month that has sessions, plus the current one, newest first. */
+function monthsWithData(){
+  const set=new Set(S.sessions.map(x=>monthKey(x.date)));
+  set.add(thisMonth());
+  return [...set].sort().reverse();
+}
+function monthStats(mk){
+  const ss=S.sessions.filter(x=>monthKey(x.date)===mk);
+  let w=0,l=0;
+  for (const s of ss) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
+  if (mk===thisMonth()) for (const t of ((S.current&&S.current.trades)||[])) (t.result==='W'?w++:l++);
+  const dayset=new Set(ss.map(x=>dayKey(x.date)));
+  const pl=ss.reduce((a,x)=>a+(x.end-x.start),0);
+  let peak=ss.length?ss[0].start:0, dd=0;
+  for (const x of ss){ peak=Math.max(peak,x.end); if(peak>0) dd=Math.max(dd,(peak-x.end)/peak); }
+  return { mk, sessions:ss, nSessions:ss.length, days:dayset.size,
+           w, l, n:w+l, rate:(w+l)?w/(w+l):null, pl, dd,
+           start: ss.length?ss[0].start:null, end: ss.length?ss[ss.length-1].end:null };
+}
 const hhmm = ts => (ts==null||!isFinite(ts)) ? '' :
   new Date(ts).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});
 const dayLabel = k => {
@@ -1123,27 +1162,48 @@ function equityChart(){
 /* ============================================================
    RENDER — analysis
    ============================================================ */
-function tradeStats(){
-  let w=0,l=0;
-  for (const s of S.sessions) for (const t of (s.trades||[])) (t.result==='W'?w++:l++);
-  for (const t of (S.current?.trades||[])) (t.result==='W'?w++:l++);
-  return { w, l, n:w+l, rate:(w+l)?w/(w+l):null };
+let anMonth = null;     // month shown in the Analiză tab
+function renderMonthTable(){
+  const all = monthsWithData().map(monthStats);
+  const be = breakEven(S.settings.payout);
+  let h=`<thead><tr><th>Luna</th><th>Zile</th><th>Ses.</th><th>Tranz.</th><th>Rată</th><th>P&amp;L</th></tr></thead><tbody>`;
+  for (const m of all){
+    const now = m.mk===anMonth ? ' style="background:rgba(76,141,255,.13)"' : '';
+    h+=`<tr${now} data-act="pickMonth" data-m="${m.mk}">
+      <td class="muted">${monthLabel(m.mk)}</td>
+      <td class="mono muted">${m.days}</td>
+      <td class="mono muted">${m.nSessions}</td>
+      <td class="mono muted">${m.n}</td>
+      <td class="mono ${m.rate==null?'muted':(m.rate>=be?'up':'down')}">${m.rate==null?'—':pct(m.rate,1)}</td>
+      <td class="mono ${cls(m.pl)}">${m.nSessions?sgn(m.pl):'—'}</td></tr>`;
+  }
+  const tot=all.reduce((a,m)=>({n:a.n+m.n,w:a.w+m.w,pl:a.pl+m.pl,d:a.d+m.days,s:a.s+m.nSessions}),{n:0,w:0,pl:0,d:0,s:0});
+  h+=`<tr style="border-top:2px solid var(--line)">
+      <td><b>Total</b></td><td class="mono muted">${tot.d}</td><td class="mono muted">${tot.s}</td>
+      <td class="mono muted">${tot.n}</td>
+      <td class="mono ${tot.n?(tot.w/tot.n>=be?'up':'down'):'muted'}">${tot.n?pct(tot.w/tot.n,1):'—'}</td>
+      <td class="mono ${cls(tot.pl)}">${tot.n?sgn(tot.pl):'—'}</td></tr>`;
+  $('#monTbl').innerHTML=h+'</tbody>';
 }
-function maxDrawdown(){
-  const ss=S.sessions; if (!ss.length) return 0;
-  let peak=ss[0].start, dd=0;
-  for (const s of ss){ peak=Math.max(peak,s.end); dd=Math.max(dd,(peak-s.end)/peak); }
-  return dd;
-}
+
 function renderAnalysis(){
-  const st=S.settings, ts=tradeStats(), be=breakEven(st.payout);
+  const st=S.settings, be=breakEven(st.payout);
+  const avail = monthsWithData();
+  if (!anMonth) anMonth = avail[0];
+  if (!/^\d{4}-\d{2}$/.test(anMonth)) anMonth = thisMonth();
+  const m = monthStats(anMonth), ts = m;
+  $('#anTitle').textContent = monthLabel(anMonth);
+  $('#anRange').innerHTML = m.nSessions
+    ? `${plural(m.days,'zi','zile')} · ${plural(m.nSessions,'sesiune','sesiuni')} · ${plural(m.n,'tranzacție','tranzacții')} · P&L <b class="${cls(m.pl)}">${sgn(m.pl)}</b>`
+    : (anMonth===thisMonth() ? 'Nicio sesiune în luna aceasta — încă.' : 'Nicio sesiune în luna aceasta.');
+  renderMonthTable();
   $('#aN').textContent=ts.n; $('#aW').textContent=ts.w; $('#aL').textContent=ts.l;
   $('#aBeLbl').textContent='prag '+pct(be,2);
   $('#aMark').style.left=(be*100)+'%';
 
   if (!ts.n){
     $('#aWr').innerHTML='—<span class="u"> %</span>';
-    $('#aWrSub').textContent='Niciun rezultat înregistrat încă.';
+    $('#aWrSub').textContent='Niciun rezultat în '+monthLabel(anMonth)+'.';
     $('#aFill').style.width='0%';
     $('#aVerdict').innerHTML=`Pragul de rentabilitate la un payout de ${pct(st.payout,0)} este <b>${pct(be,2)}</b>. Sub această rată, orice sistem de mizare pierde pe termen lung.`;
     $('#aConf').textContent='';
@@ -1177,7 +1237,7 @@ function renderAnalysis(){
   $('#rEv').innerHTML=`<span class="${cls(d.ev)}">${(d.ev>0?'+':'')+(d.ev*100).toFixed(3)}%</span>`;
   $('#rOk').textContent=pct(d.okProb,1);
   $('#rWorst').textContent=pct(d.worst-1,1);
-  $('#rDd').textContent=S.sessions.length?pct(-maxDrawdown(),1):'—';
+  $('#rDd').textContent=m.nSessions?pct(-m.dd,1):'—';
 
   const rc = ruinCurve(d, [20,50,100,200], 12000);
   let h=`<thead><tr><th>Sesiuni</th><th>Risc de ruină</th><th>Rezultat median</th></tr></thead><tbody>`;
@@ -1551,6 +1611,9 @@ const ACTS = {
     openDays.has(k) ? openDays.delete(k) : openDays.add(k); renderJournal(); },
   toggleSess:(el)=>{ const i=Number(el.dataset.i);
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
+  anPrev:()=>{ anMonth = shiftMonth(anMonth||thisMonth(), -1); renderAnalysis(); },
+  anNext:()=>{ anMonth = shiftMonth(anMonth||thisMonth(),  1); renderAnalysis(); },
+  pickMonth:(el)=>{ anMonth = el.dataset.m; renderAnalysis(); window.scrollTo(0,0); },
   pickDay:(el)=>{ calSel = (calSel===el.dataset.k) ? null : el.dataset.k; renderCalendar(); },
   calPrev:()=>{ const [Y,M]=calMonth.split('-').map(Number); const d=new Date(Y,M-2,1);
     calMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); calSel=null; renderCalendar(); },
@@ -1656,9 +1719,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 19 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 20 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 19 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 20 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
