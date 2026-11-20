@@ -760,14 +760,91 @@ async function dbGet(k){
   catch(e){ return LS.get(k) }
 }
 let pending = {};
-async function dbSet(k,v){
-  LS.set(k,v);
+async function dbSet(k,v,localToo){
+  if (localToo !== false) LS.set(k,v);
   if (!db||!uid) return;
   if (pending[k]) { pending[k].next = v; return; }
   pending[k] = { next:null };
   try{ await db.collection('data/users/'+uid).doc(k).set(v) }catch(e){ note('Nu am putut salva în cloud') }
   const nx = pending[k].next; delete pending[k];
   if (nx !== null && nx !== undefined) dbSet(k,nx);
+}
+
+/* ---------- jurnalul, spart pe luni ----------
+   Firestore refuza un document peste 1 MiB, iar un jurnal de cativa ani
+   trece de limita. Fiecare luna isi are documentul ei (log-2026-11), iar
+   'index' tine un marcaj de timp per luna, ca sa stim ce s-a schimbat
+   fara sa recitim tot istoricul. Local ramane un singur bloc, ca inainte. */
+let idxStamps = {}, lastWritten = {};
+
+function bucketize(){
+  const b = {};
+  const slot = mk => (b[mk] = b[mk] || { sessions:[], dayMeta:{} });
+  for (const s of S.sessions) slot(monthKey(s.date)).sessions.push(s);
+  for (const k in S.dayMeta) slot(k.slice(0,7)).dayMeta[k] = S.dayMeta[k];
+  return b;
+}
+const EMPTY_MONTH = { sessions:[], dayMeta:{} };
+
+function saveLog(){
+  LS.set('log', { sessions:S.sessions, dayMeta:S.dayMeta });
+  if (!db || !uid) return;
+  const b = bucketize();
+  for (const mk in lastWritten) if (!b[mk]) b[mk] = EMPTY_MONTH;   // luna golita
+  const stamps = { ...idxStamps };
+  let any = false;
+  for (const mk in b){
+    const j = JSON.stringify(b[mk]);
+    if (lastWritten[mk] === j) continue;                           // luna neatinsa
+    lastWritten[mk] = j; stamps[mk] = Date.now(); any = true;
+    dbSet('log-'+mk, b[mk], false);
+  }
+  if (any){ idxStamps = stamps; dbSet('index', { v:2, months:stamps }, false); }
+}
+
+function assemble(parts){
+  const sessions = [], dayMeta = {};
+  for (const p of parts){
+    if (!p) continue;
+    for (const s of normSessions(p.sessions)) sessions.push(s);
+    Object.assign(dayMeta, normDayMeta(p.dayMeta));
+  }
+  sessions.sort((a,b)=>a.date-b.date);
+  return { sessions, dayMeta };
+}
+
+/* Citeste jurnalul din cloud, in formatul nou daca exista, altfel din cel vechi. */
+async function loadLog(){
+  const idx = await dbGet('index');
+  if (idx && idx.months && typeof idx.months === 'object'){
+    idxStamps = { ...idx.months };
+    const mks = Object.keys(idx.months);
+    const parts = await Promise.all(mks.map(mk => dbGet('log-'+mk)));
+    mks.forEach((mk,i)=>{ lastWritten[mk] = JSON.stringify(parts[i] || EMPTY_MONTH); });
+    return assemble(parts);
+  }
+  const lg = await dbGet('log');                                    // format vechi
+  return lg ? { sessions:normSessions(lg.sessions), dayMeta:normDayMeta(lg.dayMeta) } : null;
+}
+
+/* Doar lunile al caror marcaj s-a schimbat sunt recitite. */
+async function applyIndex(d){
+  if (!d || !d.months) return false;
+  const need = Object.keys(d.months).filter(mk => d.months[mk] !== idxStamps[mk]);
+  if (!need.length) return false;
+  const parts = await Promise.all(need.map(mk => dbGet('log-'+mk)));
+  const drop = new Set(need);
+  S.sessions = S.sessions.filter(s => !drop.has(monthKey(s.date)));
+  for (const k in S.dayMeta) if (drop.has(k.slice(0,7))) delete S.dayMeta[k];
+  const add = assemble(parts);
+  for (const s of add.sessions) S.sessions.push(s);
+  Object.assign(S.dayMeta, add.dayMeta);
+  S.sessions.sort((a,b)=>a.date-b.date);
+  idxStamps = { ...d.months };
+  const b = bucketize();
+  for (const mk of need) lastWritten[mk] = JSON.stringify(b[mk] || EMPTY_MONTH);
+  LS.set('log', { sessions:S.sessions, dayMeta:S.dayMeta });
+  return true;
 }
 
 /* ============================================================
@@ -1630,7 +1707,7 @@ function logSession(manual){
   });
   S.current = { startBalance:r.balance, trades:[], n:sessionsToday()+1 };   // auto-copy balance
   S.settings.cap = r.balance;
-  dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current); dbSet('settings',S.settings);
+  saveLog(); dbSet('current',S.current); dbSet('settings',S.settings);
   note(manual ? 'Închisă și salvată' : 'Sesiune înregistrată'); render();
 }
 let resetArm=false;
@@ -1712,7 +1789,7 @@ function doImport(){
     S.sessions=normSessions(d.sessions);
     S.dayMeta=normDayMeta(d.dayMeta);
     S.current=normCurrent(d.current, S.settings.cap, sessionsToday()+1);
-    dbSet('settings',S.settings); dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta}); dbSet('current',S.current);
+    dbSet('settings',S.settings); saveLog(); dbSet('current',S.current);
     $('#importBox').style.display='none'; note('Import reu\u0219it'); render();
   }catch(e){ note('JSON invalid'); }
 }
@@ -1721,7 +1798,7 @@ function doWipe(){
   if (!wipeArm){ wipeArm=true; b.textContent='Sigur? Apas\u0103 din nou';
     setTimeout(()=>{wipeArm=false;b.textContent='\u0218terge tot jurnalul';},4000); return; }
   S.sessions=[]; S.dayMeta={}; S.current={startBalance:S.settings.cap,trades:[],n:1};
-  dbSet('log',{sessions:[], dayMeta:{}}); dbSet('current',S.current);
+  saveLog(); dbSet('current',S.current);
   wipeArm=false; b.textContent='\u0218terge tot jurnalul'; note('Jurnal \u0219ters'); render();
 }
 const ACTS = {
@@ -1748,7 +1825,7 @@ const ACTS = {
     const before=S.sessions.length, fb=earliestStart();
     S.sessions = S.sessions.filter(x=>dayKey(x.date)!==k);
     delete S.dayMeta[k];
-    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    saveLog();
     const r=rebase(fb);
     note(plural(before-S.sessions.length,'sesiune \u0219tears\u0103','sesiuni \u0219terse')
          + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
@@ -1762,7 +1839,7 @@ const ACTS = {
     const fb=earliestStart();
     S.sessions.splice(i,1);
     openSess.clear();
-    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    saveLog();
     const r=rebase(fb);
     note('Sesiune \u0219tears\u0103' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
     render();
@@ -1772,7 +1849,7 @@ const ACTS = {
     disarm();
     const fb=earliestStart();
     S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear();
-    dbSet('log',{sessions:[], dayMeta:{}});
+    saveLog();
     const r=rebase(fb);
     note('Istoric \u0219ters' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
     render();
@@ -1781,13 +1858,13 @@ const ACTS = {
     const k=todayKey(), d=days().find(x=>x.key===k);
     if (!d) return note('Nicio sesiune ast\u0103zi');
     S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), closed:true, closedAt:Date.now()}});
-    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    saveLog();
     note('Zi \u00eencheiat\u0103: '+sgn(d.pl)); render();
   },
   reopenDay:()=>{
     const k=todayKey();
     S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), closed:false, closedAt:null}});
-    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    saveLog();
     note('Zi redeschis\u0103'); render();
   },
   toggleDay:(el)=>{ const k=el.dataset.k;
@@ -1826,7 +1903,7 @@ const ACTS = {
     }
   },
   export:doExport, import:doImport,
-  fbIn:()=>fbDo('in'), fbUp:()=>fbDo('up'), fbOut:fbOut,
+  fbIn:()=>fbDo('in'), fbUp:()=>fbDo('up'), fbOut:fbOut, fbReset:fbReset,
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
   wipe:doWipe,
@@ -1861,7 +1938,7 @@ document.addEventListener('change', function(e){
     const k=el.dataset.day, f=el.dataset.field, v=String(el.value||'').slice(0,300);
     if (((S.dayMeta[k]||{})[f] || '') === v) return;          // nothing actually changed
     S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), [f]: v}});
-    dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
+    saveLog();
     renderDays(); return;
   }
   if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
@@ -1978,10 +2055,10 @@ async function onAuth(u){
 async function firstSync(){
   const linkKey = 'tm_linked_'+uid;
   let first=true; try{ first = !localStorage.getItem(linkKey); }catch(e){}
-  const [cfg,cu,lg] = await Promise.all([dbGet('settings'), dbGet('current'), dbGet('log')]);
+  const [cfg,cu,lg] = await Promise.all([dbGet('settings'), dbGet('current'), loadLog()]);
   if (first){
-    const cloudS = normSessions(lg && lg.sessions);
-    const cloudM = normDayMeta(lg && lg.dayMeta);
+    const cloudS = (lg && lg.sessions) || [];
+    const cloudM = (lg && lg.dayMeta) || {};
     const byKey = new Map();
     for (const x of cloudS) byKey.set(sesKey(x), x);
     for (const x of S.sessions){
@@ -1993,38 +2070,43 @@ async function firstSync(){
     if (cfg && !LS.get('settings')) S.settings = normSettings(cfg);
     if (cu  && !LS.get('current'))  S.current  = normCurrent(cu, S.settings.cap, sessionsToday()+1);
     try{ localStorage.setItem(linkKey,'1'); }catch(e){}
+    lastWritten = {};                      // force every month to be written once
     await pushAll();
   } else if (!lg && !cfg && !cu){
     await pushAll();                       // account emptied elsewhere: reseed from here
   } else {
     if (cfg) S.settings = normSettings(cfg);
-    if (lg){ S.sessions = normSessions(lg.sessions); S.dayMeta = normDayMeta(lg.dayMeta); }
+    if (lg){ S.sessions = lg.sessions; S.dayMeta = lg.dayMeta; }
     if (cu)  S.current  = normCurrent(cu, S.settings.cap, sessionsToday()+1);
   }
 }
 
 function pushAll(){
   return Promise.all([
-    dbSet('log', {sessions:S.sessions, dayMeta:S.dayMeta}),
+    saveLog(),
     dbSet('settings', S.settings),
     dbSet('current', S.current)
   ]);
 }
 
-/* Live: a session logged on the phone appears on the PC without a refresh. */
+/* Live: o sesiune inchisa pe telefon apare pe PC fara refresh.
+   Trei ascultatori, indiferent cat de lung e istoricul: 'index' spune ce luna
+   s-a schimbat si doar aceea e recitita. */
 function watchCloud(){
   const col = db.collection('data/users/'+uid);
   const watch = (k, apply) => col.doc(k).onSnapshot(snap=>{
     try{
-      if (!snap || (snap.metadata && snap.metadata.hasPendingWrites)) return;  // our own echo
+      if (!snap || (snap.metadata && snap.metadata.hasPendingWrites)) return;  // ecoul propriu
       const d = unwrap(snap); if (!d) return;
       const sig = JSON.stringify(d);
-      if (sig === lastSeen[k]) return;                 // nothing actually changed
+      if (sig === lastSeen[k]) return;                 // nimic schimbat de fapt
       lastSeen[k] = sig;
-      apply(d); LS.set(k, d); render();
+      const r = apply(d);
+      if (r && typeof r.then === 'function') r.then(x => { if (x !== false) render(); }).catch(()=>{});
+      else { LS.set(k, d); render(); }
     }catch(e){}
   }, ()=>{});
-  fbUnsub.push(watch('log', d=>{ S.sessions=normSessions(d.sessions); S.dayMeta=normDayMeta(d.dayMeta); }));
+  fbUnsub.push(watch('index', d => applyIndex(d)));
   fbUnsub.push(watch('settings', d=>{ S.settings=normSettings(d); }));
   fbUnsub.push(watch('current', d=>{ S.current=normCurrent(d, S.settings.cap, sessionsToday()+1); }));
 }
@@ -2055,6 +2137,21 @@ async function fbDo(mode){
     syncErr = '';
   }catch(e){ syncErr = fbMsg(e); }
   authBusy = false; renderSync();
+}
+
+async function fbReset(){
+  if (!fbAuth) return;
+  const em = String(($('#fbEmail')||{}).value || '').trim();
+  if (!em){ syncErr = 'Scrie întâi e-mailul, apoi apasă din nou.'; renderSync(); return; }
+  try{
+    await fbAuth.sendPasswordResetEmail(em);
+    syncErr = ''; renderSync();
+    note('Ți-am trimis un e-mail la ' + em);
+  }catch(e){
+    syncErr = ((e&&e.code)==='auth/user-not-found')
+      ? 'Nu există niciun cont cu acest e-mail.' : fbMsg(e);
+    renderSync();
+  }
 }
 
 async function fbOut(){
@@ -2103,6 +2200,8 @@ function renderSync(){
       '<button class="btn btn-g" data-act="fbUp" style="flex:1"'+(authBusy?' disabled':'')+'>Cont nou</button>'+
     '</div>'+
     (syncErr ? '<div class="note" style="color:var(--loss)">'+escH(syncErr)+'</div>' : '')+
+    '<div class="note" style="text-align:center;margin-top:2px">'+
+      '<a href="#" data-act="fbReset" style="color:var(--accent);text-decoration:underline">Am uitat parola</a></div>'+
     '<div class="note">Primul pas: <b>Cont nou</b>, o singură dată. Apoi pe celălalt dispozitiv te <b>conectezi</b> cu același e-mail și parolă și datele vin singure. '+
     'Prietenul tău își face contul lui — nu vă vedeți datele.</div>';
   const em = document.getElementById('fbEmail');
@@ -2111,9 +2210,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 29 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 30 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 29 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 30 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
