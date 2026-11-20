@@ -1,5 +1,5 @@
 /* Trade Manager — offline cache. Bump CACHE on every deploy. */
-const CACHE = 'tm-v25';
+const CACHE = 'tm-v28';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png'

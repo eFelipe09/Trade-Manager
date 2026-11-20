@@ -196,6 +196,7 @@ select{font-family:Inter,sans-serif}
 }
 .tbl th:first-child,.tbl td:first-child{text-align:left;padding-left:2px}
 .tbl td{text-align:right;padding:7px 6px;border-bottom:1px solid rgba(38,46,59,.5)}
+.tbl td.mono,.tbl td:first-child{white-space:nowrap}
 .tbl tr:last-child td{border-bottom:0}
 .tbl .muted{color:var(--faint)}
 .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em}
@@ -477,6 +478,7 @@ svg{display:block;width:100%;height:auto}
       </select>
     </div>
     <div class="note" id="slNote"></div>
+    <div id="slWarn"></div>
   </div>
 
   <div class="card">
@@ -677,6 +679,11 @@ function monthStats(mk){
 }
 const hhmm = ts => (ts==null||!isFinite(ts)) ? '' :
   new Date(ts).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});
+const dayShort = k => { const [y,m,d]=k.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString('ro-RO',{day:'2-digit',month:'short'}); };
+const monthShort = mk => { const [Y,M]=mk.split('-').map(Number);
+  const t=new Date(Y,M-1,1).toLocaleDateString('ro-RO',{month:'short',year:'numeric'});
+  return t.charAt(0).toUpperCase()+t.slice(1); };
 const dayLabel = k => {
   const [y,m,d]=k.split('-').map(Number), dt=new Date(y,m-1,d);
   const s=dt.toLocaleDateString('ro-RO',{weekday:'short',day:'2-digit',month:'short'});
@@ -822,7 +829,13 @@ function normSessions(arr){
       date: x.date || Date.now(),
       wins: Number(x.wins)||0, losses: Number(x.losses)||0,
       status: x.status || 'exhausted',
-      trades: Array.isArray(x.trades) ? x.trades : [] }));
+      // sanitise the trades themselves, not just the array around them
+      trades: (Array.isArray(x.trades) ? x.trades : [])
+        .filter(t => t && (t.result==='W' || t.result==='L'))
+        .map(t => ({ result:t.result,
+                     stake: isFinite(Number(t.stake)) ? Number(t.stake) : undefined,
+                     ret:   isFinite(Number(t.ret))   ? Number(t.ret)   : undefined,
+                     ts:    isFinite(Number(t.ts))    ? Number(t.ts)    : undefined })) }));
 }
 function cur(){
   const next = sessionsToday()+1;
@@ -1058,17 +1071,17 @@ function renderDays(){
   $('#dWl').textContent=win+' / '+(all.length-win);
   $('#dN').textContent=all.length;
 
-  let h=`<thead><tr><th>Zi</th><th>Strat.</th><th>TF</th><th>Ses.</th><th>Start</th><th>Final</th><th>%</th><th>P&amp;L</th><th></th></tr></thead><tbody>`;
+  let h=`<thead><tr><th>Zi</th><th>P&amp;L</th><th>%</th><th>Final</th><th>Ses.</th><th>Strat.</th><th>TF</th><th>Start</th><th></th></tr></thead><tbody>`;
   const n=all.length;
   all.forEach((d,i)=>{
-    h+=`<tr><td class="muted">${n-i}. ${dayLabel(d.key)}</td>
+    h+=`<tr><td class="muted">${dayShort(d.key)}</td>
+      <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td>
+      <td class="mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</td>
+      <td class="mono">${money(d.end)}</td>
+      <td class="mono muted">${d.nSessions}</td>
       <td class="muted">${d.meta.strategy||'—'}</td>
       <td class="muted">${d.meta.tf||'—'}</td>
-      <td class="mono muted">${d.nSessions}</td>
-      <td class="mono">${money(d.start)}</td>
-      <td class="mono">${money(d.end)}</td>
-      <td class="mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</td>
-      <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td>
+      <td class="mono muted">${money(d.start)}</td>
       <td><button class="del${delArm==='day:'+d.key?' arm':''}" data-act="delDay" data-k="${d.key}">${delArm==='day:'+d.key?'sigur?':'✕'}</button></td></tr>`;
   });
   $('#dayTbl').innerHTML=h+'</tbody>';
@@ -1186,7 +1199,7 @@ function renderMonthTable(){
   for (const m of all){
     const now = m.mk===anMonth ? ' style="background:rgba(76,141,255,.13)"' : '';
     h+=`<tr${now} data-act="pickMonth" data-m="${m.mk}">
-      <td class="muted">${monthLabel(m.mk)}</td>
+      <td class="muted">${monthShort(m.mk)}</td>
       <td class="mono muted">${m.days}</td>
       <td class="mono muted">${m.nSessions}</td>
       <td class="mono muted">${m.n}</td>
@@ -1418,6 +1431,19 @@ function escNote(){
    bal(t,j) = C * M00 / M[t][j] is order-independent (the plan's
    invariant), so every reachable stake can be checked exactly.
    ============================================================ */
+/* Highest balance at which the plan still demands the whole account.
+   A stop set below this point can be stepped over, and the session can
+   still reach zero even with the stop switched on. */
+function allInFloor(N,K,payout){
+  const R=1+payout, M=buildMatrix(N,K,R), C=M.get(0,0), maxL=1+N-K;
+  let hi=0;
+  for (let t=0;t<N;t++) for (let j=0;j<K;j++){
+    const L=t-j; if (L<0||L>maxL||K-j>N-t) continue;
+    const m=M.get(t,j); if (!isFinite(m)) continue;
+    if (stakeFrac(M,t,j,R)>=0.999) hi=Math.max(hi, C/m);
+  }
+  return hi;                       // 0 when the plan never forces an all-in
+}
 function planBasics(N,K,payout){
   const R=1+payout, M=buildMatrix(N,K,R);
   return { firstFrac: stakeFrac(M,0,0,R), gain: M.get(0,0)-1 };
@@ -1559,6 +1585,15 @@ function renderSettings(){
   $('#slNote').innerHTML = `Cea mai rea sesiune posibilă: <b>${pct(dOn.worst-1,1)}</b> cu oprire la prag, `+
     `<b>${pct(dOff.worst-1,1)}</b> doar cu avertisment. `+
     (st.slMode==='stop' ? 'Acum e activă oprirea.' : '<b>Acum e activ doar avertismentul.</b>');
+  const floor = allInFloor(st.N,st.K,st.payout), threshold = 1-st.slPct;
+  const leaky = st.slMode==='stop' && st.slPct>0 && floor>0 && threshold <= floor+1e-9;
+  $('#slWarn').innerHTML = leaky
+    ? `<div class="banner b-bad" style="margin:11px 0 0"><span class="ic">&#9888;</span><span>
+        <b>La ${pct(st.slPct,0)} stop loss-ul nu te protejează</b>
+        Există un traseu în care balanța ajunge la ${pct(floor,1)} din start — peste pragul tău de ${pct(threshold,1)},
+        deci sesiunea nu se oprește — iar acolo algoritmul cere tot contul. Poți ajunge la zero cu stop loss-ul pornit.
+        Coboară-l sub <b>${pct(1-floor,1)}</b> ca să funcționeze.</span></div>`
+    : '';
 }
 
 /* ============================================================
@@ -1740,13 +1775,13 @@ const ACTS = {
   endDay:()=>{
     const k=todayKey(), d=days().find(x=>x.key===k);
     if (!d) return note('Nicio sesiune ast\u0103zi');
-    S.dayMeta[k] = {...(S.dayMeta[k]||{}), closed:true, closedAt:Date.now()};
+    S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), closed:true, closedAt:Date.now()}});
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
     note('Zi \u00eencheiat\u0103: '+sgn(d.pl)); render();
   },
   reopenDay:()=>{
     const k=todayKey();
-    S.dayMeta[k] = {...(S.dayMeta[k]||{}), closed:false, closedAt:null};
+    S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), closed:false, closedAt:null}});
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
     note('Zi redeschis\u0103'); render();
   },
@@ -1819,7 +1854,7 @@ document.addEventListener('change', function(e){
   if (el && el.dataset && el.dataset.day && el.dataset.field){
     const k=el.dataset.day, f=el.dataset.field, v=String(el.value||'').slice(0,300);
     if (((S.dayMeta[k]||{})[f] || '') === v) return;          // nothing actually changed
-    S.dayMeta[k] = {...(S.dayMeta[k]||{}), [f]: v};
+    S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), [f]: v}});
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
     renderDays(); return;
   }
@@ -1862,9 +1897,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 25 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 28 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 25 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 28 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
