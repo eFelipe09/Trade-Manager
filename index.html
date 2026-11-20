@@ -1622,6 +1622,28 @@ function switchTab(t){
 }
 let wipeArm=false, capArm=false, capArmTimer=null;
 let delArm=null, delArmTimer=null;
+/* After a deletion the balance must follow the newest surviving session.
+   Deleting a day in the middle leaves the newest one untouched, so the
+   balance correctly stays put; deleting the latest days rolls it back. */
+function rebase(fallback){
+  let latest=null;
+  for (const x of S.sessions) if (!latest || x.date > latest.date) latest = x;
+  const bal = latest ? latest.end : fallback;
+  if (bal == null || !isFinite(bal)) return null;
+  S.settings.cap = bal;
+  dbSet('settings', S.settings);
+  if (!((S.current && S.current.trades) || []).length){
+    S.current = { startBalance: bal, trades: [], n: sessionsToday()+1 };
+    dbSet('current', S.current);
+    return { bal, applied:true };
+  }
+  return { bal, applied:false };     // a session is in play; Setări offers to apply it
+}
+const earliestStart = () => {
+  let first=null;
+  for (const x of S.sessions) if (!first || x.date < first.date) first = x;
+  return first ? first.start : null;
+};
 function arm(token, redraw){
   delArm = token; clearTimeout(delArmTimer);
   delArmTimer = setTimeout(()=>{ delArm=null; try{ redraw(); }catch(e){} }, 5000);
@@ -1683,28 +1705,37 @@ const ACTS = {
     const k=el.dataset.k, tok='day:'+k;
     if (delArm!==tok) return arm(tok, ()=>{ renderDays(); renderJournal(); });
     disarm();
-    const before=S.sessions.length;
+    const before=S.sessions.length, fb=earliestStart();
     S.sessions = S.sessions.filter(x=>dayKey(x.date)!==k);
     delete S.dayMeta[k];
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
-    note(plural(before-S.sessions.length,'sesiune \u0219tears\u0103','sesiuni \u0219terse')); render();
+    const r=rebase(fb);
+    note(plural(before-S.sessions.length,'sesiune \u0219tears\u0103','sesiuni \u0219terse')
+         + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
+    render();
   },
   delSess:(el)=>{
     const i=Number(el.dataset.i), tok='sess:'+i;
     if (delArm!==tok) return arm(tok, ()=>renderJournal());
     disarm();
     if (!S.sessions[i]) return;
+    const fb=earliestStart();
     S.sessions.splice(i,1);
     openSess.clear();
     dbSet('log',{sessions:S.sessions, dayMeta:S.dayMeta});
-    note('Sesiune \u0219tears\u0103'); render();
+    const r=rebase(fb);
+    note('Sesiune \u0219tears\u0103' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
+    render();
   },
   clearAll:()=>{
     if (delArm!=='all') return arm('all', ()=>{ renderDays(); renderJournal(); renderAnalysis(); });
     disarm();
+    const fb=earliestStart();
     S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear();
     dbSet('log',{sessions:[], dayMeta:{}});
-    note('Istoric \u0219ters'); render();
+    const r=rebase(fb);
+    note('Istoric \u0219ters' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
+    render();
   },
   endDay:()=>{
     const k=todayKey(), d=days().find(x=>x.key===k);
@@ -1831,9 +1862,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 24 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 25 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 24 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 25 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
