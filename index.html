@@ -846,6 +846,13 @@ function stakeFrac(M,t,j,R){
 const breakEven = payout => 1/(1+payout);
 
 /* Replay the recorded results of one session, exactly as the sheet does. */
+/* Brokerul acceptă doar cenți, deci tot planul lucrează în cenți:
+   miza sugerată, proiecțiile și capitalul necesar. Fără asta, aplicația
+   calcula cu fracțiuni de cent pe care nu le poți paria niciodată. */
+const round2 = v => Math.round((v + Number.EPSILON) * 100) / 100;
+const ceil2  = v => (isFinite(v) && Math.abs(v) < 1e9)
+  ? Math.ceil((v - 1e-9) * 100) / 100 : v;
+
 function replay(cfg){
   const {startBalance:B0, N, K, payout, slPct, slMode} = cfg;
   const trades = Array.isArray(cfg.trades) ? cfg.trades : [];
@@ -855,9 +862,14 @@ function replay(cfg){
   let bal=B0, t=0, j=0, losses=0, status='open';
   const rows=[];
   for (let i=0;i<N;i++){
-    const f = stakeFrac(M,t,j,R), sug = f*bal;
+    const f = stakeFrac(M,t,j,R);
+    const cap = round2(bal);                       // nu poți paria mai mult decât ai
+    let sug = round2(f*bal);
+    if (sug < 0.01) sug = Math.min(0.01, cap);     // cel mai mic pas al brokerului
+    if (sug > cap)  sug = cap;
     const rec = trades[i];
-    const row = { no:i+1, suggested:sug, pctOfBal:f, allIn:f>=0.999,
+    const row = { no:i+1, suggested:sug, pctOfBal:(bal>0 ? sug/bal : f),
+                  allIn: f>=0.999 || sug>=cap,
                   before:bal, required:M.get(t,j), goal:bal*M.get(t,j) };
     if (!rec){ rows.push(row); break; }
     row.result = rec.result;
@@ -1873,8 +1885,9 @@ function capitalNeeds(N,K,payout,minStake){
     if (st<gmin){ gmin=st; at={t,j,L}; }
     if (j <= K-2 && st<emin) emin=st;             // the run before the last win
   }
-  return { start: minStake/firstFrac, full: minStake/gmin,
-           early: isFinite(emin) ? minStake/emin : 0, at, firstFrac,
+  const need = x => (isFinite(x) && x > 0) ? ceil2(x) : x;   // o sumă pe care chiar o poți avea
+  return { start: need(minStake/firstFrac), full: need(minStake/gmin),
+           early: isFinite(emin) ? need(minStake/emin) : 0, at, firstFrac,
            gain: M00-1, maxLosses: maxL };
 }
 
@@ -1888,7 +1901,7 @@ function renderFit(){
     let hit=null;
     for (let K=Math.max(1,Math.min(kFrom,N-1)); K<N; K++){
       const b=planBasics(N,K,st.payout);
-      if (b.firstFrac>0 && bal >= st.minStake/b.firstFrac - 1e-9){ hit={K,b}; kFrom=K; break; }
+      if (b.firstFrac>0 && bal >= ceil2(st.minStake/b.firstFrac) - 1e-9){ hit={K,b}; kFrom=K; break; }
     }
     if (!hit) continue;
     const n = capitalNeeds(N,hit.K,st.payout,st.minStake);
@@ -1911,7 +1924,7 @@ function renderFit(){
     h += `<tr${now} data-act="pickNK" data-n="${r.N}" data-k="${r.K}">`+
          `<td class="muted">${r.N}</td>`+
          `<td class="mono">${r.K}<span class="dot dot-${r.grade}"></span></td>`+
-         `<td class="mono">${money(r.b.firstFrac*bal)}</td>`+
+         `<td class="mono">${money(round2(r.b.firstFrac*bal))}</td>`+
          (mode===2?'':`<td class="mono ${r.grade==='ok'?'':(r.grade==='bad'?'down':'')}">${bigMoney(r.need)}</td>`)+
          `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}</td></tr>`;
   }
@@ -1931,7 +1944,7 @@ function renderPlan(){
   const st=S.settings, bal=cur().startBalance;
   $('#pMin').value = st.minStake;
   const n = capitalNeeds(st.N, st.K, st.payout, st.minStake);
-  const first = n.firstFrac*bal;
+  const first = round2(n.firstFrac*bal);
   const w = n.at ? n.at.j : 0;
   const grid = `<div class="grid" style="margin-top:11px">
       <div class="kv"><div class="k">Prima miză</div><div class="v mono">${money(first)}</div></div>
@@ -2542,9 +2555,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 40 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 41 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 40 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 41 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
