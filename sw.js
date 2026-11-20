@@ -1,5 +1,5 @@
 /* Trade Manager — offline cache. Bump CACHE on every deploy. */
-const CACHE = 'tm-v28';
+const CACHE = 'tm-v29';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png'
@@ -20,7 +20,19 @@ self.addEventListener('activate', e => {
 // Network-first for the page (so updates arrive), cache-first for everything else.
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) {
+    // the Firebase SDK is versioned and immutable, so cache it: the app then
+    // opens and signs in from cache when the connection is poor or absent.
+    if (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) {
+      e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
+        if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
+        return res;
+      })));   // nothing cached and no network: let it fail, the app copes
+    }
+    return;
+  }
   const isPage = req.mode === 'navigate' || req.destination === 'document';
   if (isPage) {
     e.respondWith(

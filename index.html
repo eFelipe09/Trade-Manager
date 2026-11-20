@@ -482,6 +482,11 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Sincronizare</h2>
+    <div id="syncBody"><div class="note">Se încarcă…</div></div>
+  </div>
+
+  <div class="card">
     <h2>Date</h2>
     <div class="btns" style="margin-bottom:10px">
       <button class="btn btn-g" id="bExport" data-act="export">Copiază backup</button>
@@ -494,7 +499,7 @@ svg{display:block;width:100%;height:auto}
         <button class="btn btn-g" id="bImportX" data-act="importCancel">Anulează</button>
       </div>
     </div>
-    <div class="note">Datele stau pe telefonul tău, în aplicație. Nu pleacă nicăieri și nimeni altcineva nu le vede — dar nici nu se sincronizează între telefon și calculator. Folosește <b>Copiază backup</b> ca să le muți sau să le păstrezi.</div>
+    <div class="note">Fără cont, datele stau doar pe acest dispozitiv și nu pleacă nicăieri. Cu un cont (vezi <b>Sincronizare</b>) ajung și pe celelalte dispozitive ale tale, tot private. <b>Copiază backup</b> rămâne oricum util ca să le păstrezi separat.</div>
   </div>
 
   <div class="card">
@@ -1821,6 +1826,7 @@ const ACTS = {
     }
   },
   export:doExport, import:doImport,
+  fbIn:()=>fbDo('in'), fbUp:()=>fbDo('up'), fbOut:fbOut,
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
   wipe:doWipe,
@@ -1891,15 +1897,223 @@ function render_(){
   const r=calc();
   renderHeader(r); renderBanner(r); renderNext(r);
   renderTarget(r); renderTrades(r); renderDaily(r);
-  renderJournal(); renderDays(); renderSettings();
+  renderJournal(); renderDays(); renderSettings(); renderSync();
   const act=document.querySelector('nav button.on');
   if (act && act.dataset.t==='a') renderAnalysis();
 }
 
+/* ============================================================
+   SINCRONIZARE (Firebase)
+   Acelasi cont pe telefon si pe PC => aceleasi date. Fara cont,
+   aplicatia merge exact ca pana acum, local, pe dispozitiv.
+   ============================================================ */
+const FB_CFG = {
+  apiKey: "AIzaSyCjHIEvBSdfgUshFj_a-FBn2LbN7nerPXI",
+  authDomain: "trade-manager-9cda9.firebaseapp.com",
+  projectId: "trade-manager-9cda9",
+  storageBucket: "trade-manager-9cda9.firebasestorage.app",
+  messagingSenderId: "761726516102",
+  appId: "1:761726516102:web:18a6724cc4cc0af8760a07"
+};
+const FBV = '10.14.1';
+let fbAuth=null, fbUser=null, syncState='init', syncErr='', authBusy=false;
+let fbUnsub=[], lastSeen={}, lastEmail='';
+try{ lastEmail = localStorage.getItem('tm_email') || ''; }catch(e){}
+
+const escH = s => String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src; s.async=false;
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('nu s-a putut încărca '+src));
+    document.head.appendChild(s);
+  });
+}
+
+async function initFirebase(){
+  try{
+    const base='https://www.gstatic.com/firebasejs/'+FBV+'/';
+    await loadScript(base+'firebase-app-compat.js');
+    await loadScript(base+'firebase-auth-compat.js');
+    await loadScript(base+'firebase-firestore-compat.js');
+    firebase.initializeApp(FB_CFG);
+    fbAuth = firebase.auth();
+    try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
+    const fs = firebase.firestore();
+    // normSessions leaves absent numbers as undefined; Firestore refuses those
+    try{ fs.settings({ ignoreUndefinedProperties:true }); }catch(e){}
+    try{ await fs.enablePersistence({ synchronizeTabs:true }); }catch(e){}
+    syncState='out';
+    fbAuth.onAuthStateChanged(onAuth);
+  }catch(e){
+    syncState='nonet'; syncErr = e&&e.message || String(e);
+  }
+  setSyncMsg(); renderSync();
+}
+
+const sesKey = x => x.date+'|'+Math.round((x.start||0)*1e4)+'|'+Math.round((x.end||0)*1e4);
+
+async function onAuth(u){
+  fbUnsub.forEach(f=>{ try{ f(); }catch(e){} }); fbUnsub=[]; lastSeen={};
+  fbUser = u || null;
+  if (!u){ db=null; uid=null; syncState='out'; setSyncMsg(); renderSync(); return; }
+  uid = u.uid; db = firebase.firestore();
+  try{ localStorage.setItem('tm_email', u.email||''); }catch(e){}
+  lastEmail = u.email || lastEmail;
+  syncState='syncing'; syncErr=''; setSyncMsg(); renderSync();
+  try{
+    await firstSync();
+    watchCloud();
+    syncState='on'; syncErr='';
+  }catch(e){
+    syncState='err'; syncErr = e&&e.message || String(e);
+  }
+  setSyncMsg(); renderSync(); render();
+}
+
+/* The first time a device links to an account nothing may be thrown away:
+   local history and cloud history are merged. After that the cloud document
+   is the single copy and every write replaces it. */
+async function firstSync(){
+  const linkKey = 'tm_linked_'+uid;
+  let first=true; try{ first = !localStorage.getItem(linkKey); }catch(e){}
+  const [cfg,cu,lg] = await Promise.all([dbGet('settings'), dbGet('current'), dbGet('log')]);
+  if (first){
+    const cloudS = normSessions(lg && lg.sessions);
+    const cloudM = normDayMeta(lg && lg.dayMeta);
+    const byKey = new Map();
+    for (const x of cloudS) byKey.set(sesKey(x), x);
+    for (const x of S.sessions){
+      const k = sesKey(x), old = byKey.get(k);
+      if (!old || (x.trades||[]).length > (old.trades||[]).length) byKey.set(k, x);
+    }
+    S.sessions = [...byKey.values()].sort((a,b)=>a.date-b.date);
+    S.dayMeta  = Object.assign({}, cloudM, S.dayMeta);
+    if (cfg && !LS.get('settings')) S.settings = normSettings(cfg);
+    if (cu  && !LS.get('current'))  S.current  = normCurrent(cu, S.settings.cap, sessionsToday()+1);
+    try{ localStorage.setItem(linkKey,'1'); }catch(e){}
+    await pushAll();
+  } else if (!lg && !cfg && !cu){
+    await pushAll();                       // account emptied elsewhere: reseed from here
+  } else {
+    if (cfg) S.settings = normSettings(cfg);
+    if (lg){ S.sessions = normSessions(lg.sessions); S.dayMeta = normDayMeta(lg.dayMeta); }
+    if (cu)  S.current  = normCurrent(cu, S.settings.cap, sessionsToday()+1);
+  }
+}
+
+function pushAll(){
+  return Promise.all([
+    dbSet('log', {sessions:S.sessions, dayMeta:S.dayMeta}),
+    dbSet('settings', S.settings),
+    dbSet('current', S.current)
+  ]);
+}
+
+/* Live: a session logged on the phone appears on the PC without a refresh. */
+function watchCloud(){
+  const col = db.collection('data/users/'+uid);
+  const watch = (k, apply) => col.doc(k).onSnapshot(snap=>{
+    try{
+      if (!snap || (snap.metadata && snap.metadata.hasPendingWrites)) return;  // our own echo
+      const d = unwrap(snap); if (!d) return;
+      const sig = JSON.stringify(d);
+      if (sig === lastSeen[k]) return;                 // nothing actually changed
+      lastSeen[k] = sig;
+      apply(d); LS.set(k, d); render();
+    }catch(e){}
+  }, ()=>{});
+  fbUnsub.push(watch('log', d=>{ S.sessions=normSessions(d.sessions); S.dayMeta=normDayMeta(d.dayMeta); }));
+  fbUnsub.push(watch('settings', d=>{ S.settings=normSettings(d); }));
+  fbUnsub.push(watch('current', d=>{ S.current=normCurrent(d, S.settings.cap, sessionsToday()+1); }));
+}
+
+function fbMsg(e){
+  const c = (e && e.code) || '';
+  if (c==='auth/invalid-credential' || c==='auth/wrong-password' || c==='auth/user-not-found')
+    return 'E-mail sau parolă greșită.';
+  if (c==='auth/email-already-in-use') return 'Exista deja un cont cu acest e-mail — foloseste „Conecteaza-te”.';
+  if (c==='auth/invalid-email')        return 'E-mailul nu pare valid.';
+  if (c==='auth/weak-password')        return 'Parola trebuie să aibă minim 6 caractere.';
+  if (c==='auth/network-request-failed') return 'Fără conexiune — încearcă din nou când ai internet.';
+  if (c==='auth/too-many-requests')    return 'Prea multe încercări. Așteaptă un minut.';
+  return (e && e.message) || 'Nu a mers. Încearcă din nou.';
+}
+
+async function fbDo(mode){
+  if (!fbAuth || authBusy) return;
+  const em = String(($('#fbEmail')||{}).value || '').trim();
+  const pw = String(($('#fbPass') ||{}).value || '');
+  if (!em || pw.length < 6){
+    syncErr = 'Scrie e-mailul și o parolă de minim 6 caractere.'; renderSync(); return;
+  }
+  lastEmail = em; authBusy = true; syncErr = ''; renderSync();
+  try{
+    if (mode==='up') await fbAuth.createUserWithEmailAndPassword(em, pw);
+    else             await fbAuth.signInWithEmailAndPassword(em, pw);
+    syncErr = '';
+  }catch(e){ syncErr = fbMsg(e); }
+  authBusy = false; renderSync();
+}
+
+async function fbOut(){
+  if (!fbAuth) return;
+  try{ await fbAuth.signOut(); note('Deconectat — datele rămân pe acest dispozitiv'); }
+  catch(e){ note('Nu am putut deconecta'); }
+}
+
+function setSyncMsg(){
+  const el = $('#syncMsg'); if (!el) return;
+  el.textContent = fbUser
+    ? (syncState==='on' ? 'Sincronizat · '+(fbUser.email||'') : 'Se sincronizează…')
+    : (syncState==='nonet' ? 'Date salvate doar pe acest dispozitiv'
+                           : 'Date salvate doar pe acest dispozitiv · neconectat');
+}
+
+let syncSig = null;
+function renderSync(){
+  const el = document.getElementById('syncBody'); if (!el) return;
+  const sig = syncState+'|'+(fbUser?fbUser.email:'')+'|'+syncErr+'|'+(authBusy?'1':'0');
+  if (sig === syncSig) return;                 // never rebuild under the user's fingers
+  syncSig = sig;
+  if (syncState==='init'){
+    el.innerHTML = '<div class="note">Se încarcă…</div>'; return;
+  }
+  if (syncState==='nonet'){
+    el.innerHTML = '<div class="note">Sincronizarea nu e disponibilă acum (nu am putut încărca Firebase). '+
+      'Aplicația merge normal — datele rămân pe acest dispozitiv și le poți muta cu <b>Copiază backup</b>.</div>';
+    return;
+  }
+  if (fbUser){
+    const st = syncState==='on'
+      ? 'Datele se sincronizează automat între telefon și calculator.'
+      : (syncState==='err' ? 'Conectat, dar sincronizarea a dat eroare.' : 'Se sincronizează…');
+    el.innerHTML =
+      '<div class="note" style="margin-bottom:9px">Conectat ca <b>'+escH(fbUser.email)+'</b> — '+st+'</div>'+
+      (syncState==='err' ? '<div class="note" style="color:var(--loss);margin-bottom:9px">'+escH(syncErr)+'</div>' : '')+
+      '<button class="btn btn-g" data-act="fbOut" style="width:100%">Deconectează-te</button>';
+    return;
+  }
+  el.innerHTML =
+    '<div class="fld"><label>E-mail</label><input id="fbEmail" type="email" autocomplete="username" placeholder="nume@exemplu.com"></div>'+
+    '<div class="fld"><label>Parolă</label><input id="fbPass" type="password" autocomplete="current-password" placeholder="minim 6 caractere"></div>'+
+    '<div class="btns">'+
+      '<button class="btn btn-a" data-act="fbIn" style="flex:1"'+(authBusy?' disabled':'')+'>'+(authBusy?'Se conectează…':'Conectează-te')+'</button>'+
+      '<button class="btn btn-g" data-act="fbUp" style="flex:1"'+(authBusy?' disabled':'')+'>Cont nou</button>'+
+    '</div>'+
+    (syncErr ? '<div class="note" style="color:var(--loss)">'+escH(syncErr)+'</div>' : '')+
+    '<div class="note">Primul pas: <b>Cont nou</b>, o singură dată. Apoi pe celălalt dispozitiv te <b>conectezi</b> cu același e-mail și parolă și datele vin singure. '+
+    'Prietenul tău își face contul lui — nu vă vedeți datele.</div>';
+  const em = document.getElementById('fbEmail');
+  if (em && lastEmail) em.value = lastEmail;
+}
+
+
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 28 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 29 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 28 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 29 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -1944,27 +2158,10 @@ render();   // paint immediately with defaults / localStorage
   if (ls.current) S.current=normCurrent(ls.current, S.settings.cap, sessionsToday()+1);
   render();
 
-  let timedOut=false; const timer=setTimeout(()=>{timedOut=true;},10000);
-  try{
-    const u=await claude.use('user'), d=await claude.use('db');
-    clearTimeout(timer);
-    if (u&&d&&!timedOut){
-      uid=await u.id(); db=d;
-      const [cfg,cu,lg]=await Promise.all([dbGet('settings'),dbGet('current'),dbGet('log')]);
-      if (cfg) S.settings=normSettings(cfg);
-      if (lg){ S.sessions=normSessions(lg.sessions); S.dayMeta=normDayMeta(lg.dayMeta); }
-      if (cu) S.current=normCurrent(cu, S.settings.cap, sessionsToday()+1);
-      $('#syncMsg').textContent='Date sincronizate · jurnal privat';
-      render(); renderSettings();
-    } else {
-      $('#syncMsg').textContent='Date salvate doar în acest browser';
-    }
-  }catch(e){
-    clearTimeout(timer);
-    $('#syncMsg').textContent='Date salvate doar în acest browser';
-  }
   ready=true;
+  initFirebase();              // cloud is optional: the app is already usable
 })();
+
 </script>
 </body>
 </html>
