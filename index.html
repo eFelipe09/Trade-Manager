@@ -954,14 +954,19 @@ async function dbGet(k){
   catch(e){ return LS.get(k) }
 }
 let pending = {};
-async function dbSet(k,v,localToo){
+async function dbSet(k,v,localToo,merge){
   if (localToo !== false) LS.set(k,v);
-  if (!db||!uid) return;
-  if (pending[k]) { pending[k].next = v; return; }
+  if (!db||!uid) return true;
+  if (pending[k]) { pending[k].next = v; return true; }
   pending[k] = { next:null };
-  try{ await db.collection('data/users/'+uid).doc(k).set(v) }catch(e){ note('Nu am putut salva în cloud') }
+  let okWrite = true;
+  try{
+    const ref = db.collection('data/users/'+uid).doc(k);
+    await (merge ? ref.set(v, {merge:true}) : ref.set(v));
+  }catch(e){ okWrite = false; note('Nu am putut salva în cloud') }
   const nx = pending[k].next; delete pending[k];
-  if (nx !== null && nx !== undefined) dbSet(k,nx);
+  if (nx !== null && nx !== undefined) return dbSet(k,nx,localToo,merge);
+  return okWrite;
 }
 
 /* ---------- jurnalul, spart pe luni ----------
@@ -980,20 +985,29 @@ function bucketize(){
 }
 const EMPTY_MONTH = { sessions:[], dayMeta:{} };
 
-function saveLog(){
+async function saveLog(){
   LS.set('log', { sessions:S.sessions, dayMeta:S.dayMeta });
   if (!db || !uid) return;
   const b = bucketize();
-  for (const mk in lastWritten) if (!b[mk]) b[mk] = EMPTY_MONTH;   // luna golita
-  const stamps = { ...idxStamps };
-  let any = false;
+  for (const mk in lastWritten) if (!b[mk]) b[mk] = EMPTY_MONTH;   // luna golită
+  const todo = [];
   for (const mk in b){
     const j = JSON.stringify(b[mk]);
-    if (lastWritten[mk] === j) continue;                           // luna neatinsa
-    lastWritten[mk] = j; stamps[mk] = Date.now(); any = true;
-    dbSet('log-'+mk, b[mk], false);
+    if (lastWritten[mk] === j) continue;                           // luna neatinsă
+    todo.push({ mk, j, prev: lastWritten[mk] });
   }
-  if (any){ idxStamps = stamps; dbSet('index', { v:2, months:stamps }, false); }
+  if (!todo.length) return;
+  for (const t of todo) lastWritten[t.mk] = t.j;
+  const res = await Promise.all(todo.map(t => dbSet('log-'+t.mk, b[t.mk], false)));
+  const stamps = {};
+  todo.forEach((t,i) => {
+    if (res[i]) stamps[t.mk] = Date.now();
+    else lastWritten[t.mk] = t.prev;   // a eșuat: o reîncercăm la următoarea salvare
+  });
+  if (!Object.keys(stamps).length) return;                         // niciun marcaj fără conținut
+  idxStamps = { ...idxStamps, ...stamps };
+  // merge, ca să nu ștergem lunile scrise între timp de celălalt dispozitiv
+  dbSet('index', { v:2, months:stamps }, false, true);
 }
 
 function assemble(parts){
@@ -2416,9 +2430,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 37 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 38 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 37 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 38 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
