@@ -370,6 +370,12 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Rata de câștig în timp</h2>
+    <div id="trendChart"></div>
+    <div class="note" id="trendNote"></div>
+  </div>
+
+  <div class="card">
     <h2>Tranzacții înregistrate</h2>
     <div class="grid g3">
       <div class="kv"><div class="k">Total</div><div class="v mono" id="aN">—</div></div>
@@ -1196,6 +1202,91 @@ function renderMonthTable(){
   $('#monTbl').innerHTML=h+'</tbody>';
 }
 
+/* Win rate per day for a month, with the running cumulative rate. */
+function dailyRates(mk){
+  const byDay=new Map();
+  for (const s of S.sessions){
+    if (monthKey(s.date)!==mk) continue;
+    const k=dayKey(s.date);
+    if (!byDay.has(k)) byDay.set(k,{key:k,w:0,l:0});
+    const d=byDay.get(k), tr=s.trades||[];
+    if (tr.length) for (const t of tr) (t.result==='W'?d.w++:d.l++);
+    else { d.w += Number(s.wins)||0; d.l += Number(s.losses)||0; }
+  }
+  if (mk===thisMonth() && S.current && (S.current.trades||[]).length){
+    const k=todayKey();
+    if (!byDay.has(k)) byDay.set(k,{key:k,w:0,l:0});
+    const d=byDay.get(k);
+    for (const t of S.current.trades) (t.result==='W'?d.w++:d.l++);
+  }
+  const out=[...byDay.values()].sort((a,b)=>a.key.localeCompare(b.key));
+  let cw=0, cn=0;
+  for (const d of out){
+    d.n=d.w+d.l; d.rate=d.n?d.w/d.n:null;
+    cw+=d.w; cn+=d.n; d.cum = cn ? cw/cn : null;
+  }
+  return out.filter(d=>d.n>0);
+}
+
+function trendChart(){
+  const st=S.settings, be=breakEven(st.payout), days=dailyRates(anMonth);
+  if (days.length<2){
+    $('#trendChart').innerHTML=`<div class="empty">Prea puține zile cu tranzacții în ${monthLabel(anMonth)} pentru un grafic.</div>`;
+    $('#trendNote').textContent=''; return;
+  }
+  const W=430,H=215,pl=40,pr=10,pt=14,pb=26;
+  const vals=[...days.map(d=>d.rate), ...days.map(d=>d.cum), be];
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  const pad=Math.max(0.04,(hi-lo)*0.18); lo=Math.max(0,lo-pad); hi=Math.min(1,hi+pad);
+  const span=(hi-lo)||1;
+  const n=days.length, gap=(W-pl-pr)/n, bw=Math.min(26, gap*0.62);
+  const y=v=>pt+(H-pt-pb)*(1-(v-lo)/span);
+  const x=i=>pl+gap*i+gap/2;
+  const maxN=Math.max(...days.map(d=>d.n));
+
+  let grid='';
+  for (const f of [0,.5,1]){ const v=lo+span*f, yy=y(v).toFixed(1);
+    grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#262e3b"/>
+      <text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="#5a6474" font-size="10" text-anchor="end" font-family="monospace">${(v*100).toFixed(0)}%</text>`; }
+  let bars='';
+  days.forEach((d,i)=>{
+    const yy=y(d.rate), base=y(lo), h=Math.max(1,base-yy);
+    const col=d.rate>=be?'#2fbf71':'#e5484d';
+    const op=(0.3+0.7*Math.min(1,d.n/Math.max(maxN,1))).toFixed(2);   // faint when few trades
+    bars+=`<rect x="${(x(i)-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}" opacity="${op}"/>`;
+  });
+  const cumPath=days.map((d,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(d.cum).toFixed(1)).join(' ');
+  const beY=y(be).toFixed(1);
+  const labelEvery=Math.ceil(n/8);
+  let ticks='';
+  days.forEach((d,i)=>{ if (i%labelEvery) return;
+    ticks+=`<text x="${x(i).toFixed(1)}" y="${H-12}" fill="#5a6474" font-size="9" text-anchor="middle" font-family="monospace">${d.key.slice(8)}</text>`; });
+
+  $('#trendChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="height:auto">
+    ${grid}${bars}
+    <line x1="${pl}" y1="${beY}" x2="${W-pr}" y2="${beY}" stroke="#f0a035" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <rect x="${(W-pr-66).toFixed(1)}" y="${(+beY+2).toFixed(1)}" width="66" height="13" rx="3" fill="#141922" opacity=".88"/>
+    <text x="${W-pr-3}" y="${(+beY+11.5).toFixed(1)}" fill="#f0a035" font-size="9.5" text-anchor="end" font-family="monospace">prag ${(be*100).toFixed(2)}%</text>
+    <path d="${cumPath}" fill="none" stroke="#4c8dff" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="${x(n-1).toFixed(1)}" cy="${y(days[n-1].cum).toFixed(1)}" r="3.6" fill="#4c8dff"/>
+    ${ticks}</svg>`;
+
+  const last=days[n-1], above=days.filter(d=>d.rate>=be).length;
+  const half=Math.ceil(n/2);
+  const avg=a=>{ let w=0,t=0; for(const d of a){w+=d.w;t+=d.n;} return t?w/t:null; };
+  const h1=avg(days.slice(0,half)), h2=avg(days.slice(half));
+  const drift=(h1!=null&&h2!=null)?h2-h1:null;
+  $('#trendNote').innerHTML =
+    `Barele sunt rata fiecărei zile — mai palide când ziua are puține tranzacții. `+
+    `Linia albastră e rata cumulată, care ajunge la <b>${pct(last.cum,1)}</b>. `+
+    `<b>${above}</b> din ${n} zile peste prag. `+
+    (drift==null?'' :
+      `Prima jumătate a lunii <b>${pct(h1,1)}</b>, a doua <b>${pct(h2,1)}</b> — `+
+      (Math.abs(drift)<0.015 ? 'practic stabilă.'
+        : drift>0 ? `<span class="up">în creștere cu ${(drift*100).toFixed(1)} puncte</span>.`
+                  : `<span class="down">în scădere cu ${Math.abs(drift*100).toFixed(1)} puncte</span>.`));
+}
+
 function renderAnalysis(){
   const st=S.settings, be=breakEven(st.payout);
   const avail = monthsWithData();
@@ -1220,6 +1311,7 @@ function renderAnalysis(){
     ['#rEv','#rOk','#rWorst','#rDd'].forEach(s=>$(s).textContent='—');
     $('#ruinTbl').innerHTML='';
     $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+    trendChart();
     $('#aWipe').innerHTML = wipeBtn();
     return;
   }
@@ -1268,6 +1360,7 @@ function renderAnalysis(){
   }
   $('#ruinTbl').innerHTML=h+'</tbody>';
   $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
+  trendChart();
   $('#aWipe').innerHTML = wipeBtn();
 }
 
@@ -1282,7 +1375,7 @@ function escSeries(){
   return out;
 }
 function escChart(){
-  const st=S.settings, ser=escSeries(), W=680,H=200,pl=40,pr=12,pt=14,pb=26;
+  const st=S.settings, ser=escSeries(), W=430,H=200,pl=40,pr=10,pt=14,pb=26;
   const n=ser.length, bw=(W-pl-pr)/n*0.68, gap=(W-pl-pr)/n;
   const stopY = st.slMode==='stop'&&st.slPct>0 ? (1-st.slPct) : null;
   const y=v=>pt+(H-pt-pb)*(1-v);
@@ -1305,7 +1398,7 @@ function escChart(){
   for (const v of [0,.5,1]) { const yy=y(v).toFixed(1);
     gl+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#262e3b"/>
          <text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="#5a6474" font-size="10" text-anchor="end" font-family="monospace">${(v*100).toFixed(0)}%</text>`; }
-  return `<svg viewBox="0 0 ${W} ${H}" style="height:200px">${gl}${bars}${sl}
+  return `<svg viewBox="0 0 ${W} ${H}" style="height:auto">${gl}${bars}${sl}
     <text x="${pl}" y="${H-1}" fill="#5a6474" font-size="9.5" font-family="monospace">pierderi consecutive &rarr;</text></svg>`;
 }
 function escNote(){
@@ -1738,9 +1831,9 @@ function render_(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 23 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 24 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 23 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 24 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
