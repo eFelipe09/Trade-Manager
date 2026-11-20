@@ -8,13 +8,17 @@
 /* Rulează înaintea stilurilor: fără asta, o temă închisă ar porni cu
    un fulger alb la fiecare deschidere. */
 (function(){
-  var p='auto';
+  var p='auto', d='registru';
   try{ p = JSON.parse(localStorage.getItem('tm_theme')) || 'auto'; }catch(e){}
-  var dark = p==='dark' || (p==='auto' &&
+  try{ d = JSON.parse(localStorage.getItem('tm_design')) || 'registru'; }catch(e){}
+  if (d!=='original') d='registru';
+  var dark = d==='original' || p==='dark' || (p==='auto' &&
     window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  var r=document.documentElement;
+  r.dataset.design = d;
+  r.dataset.theme = dark ? 'dark' : 'light';
   var m=document.querySelector('meta[name="theme-color"]');
-  if(m) m.setAttribute('content', dark ? '#121110' : '#F7F4EE');
+  if(m) m.setAttribute('content', d==='original' ? '#0b0e13' : (dark ? '#121110' : '#F7F4EE'));
 })();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -27,19 +31,21 @@
 <title>Trade Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Registru: hârtie caldă, cerneală închisă, linii subțiri. Verdele-petrol
      și cărămiziul se disting și după luminozitate, nu doar după nuanță. */
   --bg:#F7F4EE; --panel:#FFFDF8; --panel2:#F1ECE2; --line:#DED7C9;
   --txt:#1C1B18; --dim:#55504A; --faint:#6E675B;
-  --win:#0F6E63; --loss:#B04A2F; --warn:#8A5A00; --accent:#0F6E63;
+  --win:#067647; --loss:#C2301F; --warn:#8A5A00; --accent:#067647;
+  --win-v:#0E9A45; --loss-v:#E02424; --warn-v:#E8900A;
   --on-solid:#FFFDF8;
-  --win-bg:rgba(15,110,99,.10);  --win-br:rgba(15,110,99,.34);
-  --loss-bg:rgba(176,74,47,.10); --loss-br:rgba(176,74,47,.34);
-  --warn-bg:rgba(138,90,0,.10);  --warn-br:rgba(138,90,0,.32);
-  --acc-bg:rgba(15,110,99,.10);  --acc-br:rgba(15,110,99,.30);
+  --mono:var(--mono);
+  --win-bg:rgba(14,154,69,.16);  --win-br:rgba(14,154,69,.42);
+  --loss-bg:rgba(224,36,36,.14);  --loss-br:rgba(224,36,36,.40);
+  --warn-bg:rgba(232,144,10,.16); --warn-br:rgba(232,144,10,.44);
+  --acc-bg:rgba(14,154,69,.14);   --acc-br:rgba(14,154,69,.36);
   --hair:rgba(28,27,24,.10); --press:rgba(28,27,24,.06);
   --neutral-bg:rgba(110,103,91,.14);
   --on-win:#0B4F47; --on-warn:#6B4600; --on-loss:#8A3722; --on-info:#0B4F47;
@@ -52,16 +58,17 @@
    ridicate ca luminozitate ca să rămână lizibile. */
 :root[data-theme="dark"]{
   --bg:#121110; --panel:#1A1917; --panel2:#232120; --line:#332F2B;
-  --txt:#F0EBE2; --dim:#B5AD9E; --faint:#A09686;
-  --win:#3FBFA8; --loss:#E8775A; --warn:#D9A441; --accent:#3FBFA8;
+  --txt:#F0EBE2; --dim:#BDB5A5; --faint:#ACA292;
+  --win:#3ED47E; --loss:#FF7A63; --warn:#F2B33D; --accent:#3ED47E;
+  --win-v:#3ED47E; --loss-v:#FF7A63; --warn-v:#F2B33D;
   --on-solid:#0C1A17;
-  --win-bg:rgba(63,191,168,.13);  --win-br:rgba(63,191,168,.34);
-  --loss-bg:rgba(232,119,90,.13); --loss-br:rgba(232,119,90,.34);
-  --warn-bg:rgba(217,164,65,.12); --warn-br:rgba(217,164,65,.32);
-  --acc-bg:rgba(63,191,168,.13);  --acc-br:rgba(63,191,168,.30);
+  --win-bg:rgba(62,212,126,.16);  --win-br:rgba(62,212,126,.40);
+  --loss-bg:rgba(255,122,99,.16); --loss-br:rgba(255,122,99,.40);
+  --warn-bg:rgba(242,179,61,.15); --warn-br:rgba(242,179,61,.38);
+  --acc-bg:rgba(62,212,126,.15);  --acc-br:rgba(62,212,126,.36);
   --hair:rgba(240,235,226,.10); --press:rgba(240,235,226,.07);
   --neutral-bg:rgba(169,162,148,.16);
-  --on-win:#AEEADF; --on-warn:#F2D49B; --on-loss:#F6C4B4; --on-info:#AEEADF;
+  --on-win:#B4F2CE; --on-warn:#F7DCA8; --on-loss:#FFC9BC; --on-info:#B4F2CE;
   --bg-blur:rgba(18,17,16,.95); --shadow:rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -70,11 +77,11 @@ body{
   background:var(--bg); color:var(--txt);
   font-family:Inter,system-ui,-apple-system,sans-serif;
   font-size:15px; line-height:1.45;
-  padding-bottom:calc(86px + env(safe-area-inset-bottom));
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));
   overscroll-behavior-y:contain;
 }
 .wrap{padding-left:calc(14px + env(safe-area-inset-left));padding-right:calc(14px + env(safe-area-inset-right))}
-.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .wrap{max-width:720px;margin:0 auto;padding:0 14px}
 
 /* ---------- header ---------- */
@@ -85,7 +92,7 @@ header{
 }
 .hd{display:flex;align-items:baseline;gap:12px;padding:12px 0 11px}
 .themeBtn{
-  flex:0 0 auto;align-self:center;width:34px;height:34px;border-radius:50%;
+  flex:0 0 auto;align-self:center;margin-left:4px;width:34px;height:34px;border-radius:50%;
   background:var(--panel2);border:1px solid var(--line);color:var(--dim);
   display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
 }
@@ -98,21 +105,17 @@ header{
 .bal{flex:1;min-width:0}
 .bal .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
 .bal .val{font-size:24px;font-weight:600;letter-spacing:-.025em;line-height:1.1}
-.pl{text-align:right;font-size:18px;font-weight:600;letter-spacing:-.015em;line-height:1.15;flex:0 0 auto;white-space:nowrap}
+.pl{text-align:right;font-size:18px;font-weight:600;letter-spacing:-.015em;line-height:1.15;flex:0 0 auto;white-space:nowrap;display:flex;flex-direction:column}
 .pl .sub{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:3px}
 .up{color:var(--win)} .down{color:var(--loss)} .flat{color:var(--dim)}
 
-nav{
-  position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
-  background:var(--bg-blur);backdrop-filter:blur(12px);
-  border-top:1px solid var(--line);
-  padding:9px calc(10px + env(safe-area-inset-left)) calc(11px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-right));
-}
+nav{display:flex;gap:2px;padding-bottom:9px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
 nav button{
-  flex:1;white-space:nowrap;background:transparent;border:0;color:var(--faint);
-  font:500 11.5px Inter,sans-serif;padding:5px 2px;border-radius:8px;cursor:pointer;
+  flex:1;white-space:nowrap;background:transparent;border:0;color:var(--dim);
+  font:600 13px Inter,sans-serif;padding:7px 9px;border-radius:9px;cursor:pointer;
 }
-nav button.on{color:var(--txt);font-weight:700}
+nav button.on{background:var(--panel2);color:var(--txt)}
 
 /* ---------- blocks ---------- */
 section{display:none;padding-top:15px}
@@ -143,16 +146,21 @@ section.on{display:block}
 /* banda de segmente: una pe tranzacție, culoarea e rezultatul ei */
 .segs{display:flex;gap:4px;margin-bottom:10px}
 .segs i{flex:1;height:4px;border-radius:2px;background:var(--line)}
-.segs i.w{background:var(--win)} .segs i.l{background:var(--loss)} .segs i.now{background:var(--txt)}
-.next .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:16px;
+.segs i.w{background:var(--win-v)} .segs i.l{background:var(--loss-v)} .segs i.now{background:var(--txt)}
+.next .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;
   font-size:11.5px;color:var(--faint);font-weight:600}
-.next .no{letter-spacing:.04em}
-.next .req{white-space:nowrap}
+.next .no{letter-spacing:.04em;padding-top:4px}
+.next .req{white-space:nowrap;text-align:right;line-height:1.2}
+.next .req .rl{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--faint);font-weight:700;margin-bottom:3px}
+.next .req b{font:600 18px var(--mono);font-variant-numeric:tabular-nums;color:var(--txt)}
+.next .req b .sep{color:var(--faint);font-weight:400;padding:0 3px}
 /* numărul: în timpul sesiunii e singurul lucru la care te uiți */
 .stake{display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:4px}
 .stake .amt{font-size:58px;font-weight:500;letter-spacing:-.045em;line-height:1}
 .stake .pct{font-size:13px;color:var(--faint);font-weight:500}
 .hint{font-size:12.5px;color:var(--faint);margin:10px 0 16px;text-align:center;line-height:1.5}
+.hint .ret2{display:none}
 .edit{display:flex;gap:8px;align-items:flex-end;margin-bottom:13px}
 .edit label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;
   display:block;margin-bottom:5px}
@@ -166,7 +174,7 @@ section.on{display:block}
 .step button{flex:0 0 46px;background:transparent;border:0;color:var(--dim);font:400 21px Inter,sans-serif;padding:6px 0;cursor:pointer;line-height:1.2}
 .step button:active{background:var(--press);color:var(--txt)}
 .step button:disabled{opacity:.25;cursor:default}
-.step span{flex:1;text-align:center;font:700 17px 'IBM Plex Mono',monospace;color:var(--txt)}
+.step span{flex:1;text-align:center;font:700 17px var(--mono);color:var(--txt)}
 .fit{max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
 .fit table{width:100%;border-collapse:collapse;font-size:13px}
 .fit th{position:sticky;top:0;background:var(--panel);text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:5px 7px;border-bottom:1px solid var(--line)}
@@ -176,7 +184,7 @@ section.on{display:block}
 .fit tr.now td{background:var(--acc-bg)}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
-.dot-ok{background:var(--win)} .dot-part{background:var(--warn)} .dot-bad{background:var(--loss)}
+.dot-ok{background:var(--win-v)} .dot-part{background:var(--warn-v)} .dot-bad{background:var(--loss-v)}
 .del{background:transparent;border:0;color:var(--faint);font:600 15px Inter,sans-serif;line-height:1;
   padding:4px 7px;border-radius:7px;cursor:pointer;flex:0 0 auto}
 .del:active{background:var(--loss-bg);color:var(--loss)}
@@ -190,7 +198,7 @@ section.on{display:block}
 .grp .ttl{flex:1;min-width:0}
 .grp .ttl b{display:block;font-size:14px;font-weight:600}
 .grp .ttl span{font-size:11.5px;color:var(--faint)}
-.grp .amt2{font:700 15px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp .amt2{font:700 15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .grp .body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
 .grp.open .body{display:block}
 .sub-grp{border-top:1px solid var(--hair)}
@@ -203,7 +211,7 @@ section.on{display:block}
 .sub-grp.open .sub-body{display:block}
 .trades-mini{width:100%;border-collapse:collapse;font-size:12.5px}
 .trades-mini td{padding:4px 5px;border-bottom:1px solid var(--hair);text-align:right}
-.trades-mini td:first-child{text-align:left;color:var(--faint);font-family:'IBM Plex Mono',monospace}
+.trades-mini td:first-child{text-align:left;color:var(--faint);font-family:var(--mono)}
 .trades-mini tr:last-child td{border-bottom:0}
 .daysel{display:flex;gap:8px;margin-bottom:9px}
 .daysel>div{flex:1;min-width:0}
@@ -223,18 +231,18 @@ section.on{display:block}
 .cal .cell.has:active{filter:brightness(.96)}
 .cal .cell.blank{border-color:transparent;background:transparent}
 .cal .cell .n{font-size:9px;color:var(--faint);font-weight:700;line-height:1}
-.cal .cell .v{font:700 10px 'IBM Plex Mono',monospace;line-height:1.15;text-align:right;word-break:break-all}
+.cal .cell .v{font:700 10px var(--mono);line-height:1.15;text-align:right;word-break:break-all}
 .cal .cell .s{font-size:8px;color:var(--faint);text-align:right;line-height:1.1}
 .cal .cell.win{background:var(--win-bg);border-color:var(--win-br)}
 .cal .cell.win .v{color:var(--win)}
 .cal .cell.loss{background:var(--loss-bg);border-color:var(--loss-br)}
 .cal .cell.loss .v{color:var(--loss)}
-.cal .cell.today{box-shadow:0 0 0 1.5px var(--warn)}
+.cal .cell.today{box-shadow:0 0 0 2px var(--warn-v)}
 .cal .cell.sel{box-shadow:0 0 0 2px var(--accent)}
 .caldet{margin-top:11px}
 input,select{
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-  border-radius:9px;padding:8px 10px;font:600 14px 'IBM Plex Mono',monospace;
+  border-radius:9px;padding:8px 10px;font:600 14px var(--mono);
   width:100%;min-width:0;
 }
 input:focus,select:focus{outline:none;border-color:var(--accent)}
@@ -272,7 +280,7 @@ select{font-family:Inter,sans-serif}
 .gauge{margin:6px 0 2px}
 .gbar{height:9px;background:var(--panel2);border-radius:20px;position:relative;overflow:visible}
 .gfill{height:100%;border-radius:20px;transition:width .3s}
-.gmark{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--warn);border-radius:2px}
+.gmark{position:absolute;top:-5px;bottom:-5px;width:2.5px;background:var(--txt);border-radius:2px}
 .glbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:6px;font-weight:600}
 .big{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.05}
 .big .u{font-size:17px;color:var(--dim);font-weight:600}
@@ -285,18 +293,67 @@ select{font-family:Inter,sans-serif}
 .fld label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:4px}
 textarea{
   width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-  border-radius:9px;padding:9px;font:500 11.5px 'IBM Plex Mono',monospace;min-height:80px;resize:vertical;
+  border-radius:9px;padding:9px;font:500 11.5px var(--mono);min-height:80px;resize:vertical;
 }
 svg{display:block;width:100%;height:auto}
 .toast{
-  position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(90px);
-  background:var(--panel2);border:1px solid var(--line);border-radius:11px;
-  padding:10px 17px;font-size:13.5px;font-weight:600;z-index:60;
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(90px);
+  background:var(--txt);color:var(--bg);border:0;border-radius:11px;
+  padding:11px 18px;font-size:13.5px;font-weight:600;z-index:60;max-width:calc(100% - 28px);
   transition:transform .26s cubic-bezier(.2,.9,.3,1);box-shadow:0 10px 30px var(--shadow);
   pointer-events:none;   /* altfel, cât alunecă peste bara de jos, înghite apăsările */
 }
 .toast.show{transform:translateX(-50%) translateY(0)}
 .sync{font-size:10.5px;color:var(--faint);text-align:center;padding:4px 0 0}
+
+
+/* ============================================================
+   DESIGN: ORIGINAL
+   Prima versiune a aplicației — bleumarin închis, accent albastru,
+   JetBrains Mono. Are o singură variantă, întunecată, deci regulile
+   astea stau după cele de temă și le acoperă.
+   ============================================================ */
+:root[data-design="original"]{
+  --bg:#0b0e13; --panel:#141922; --panel2:#1b212c; --line:#262e3b;
+  --txt:#e8ecf2; --dim:#9aa4b6; --faint:#8893a8;
+  --win:#2fbf71; --loss:#ec5e62; --warn:#f0a035; --accent:#4c8dff;
+  --win-v:#2fbf71; --loss-v:#e5484d; --warn-v:#f0a035;
+  --on-solid:#ffffff;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --win-bg:rgba(47,191,113,.13);  --win-br:rgba(47,191,113,.32);
+  --loss-bg:rgba(229,72,77,.13);  --loss-br:rgba(229,72,77,.33);
+  --warn-bg:rgba(240,160,53,.12); --warn-br:rgba(240,160,53,.32);
+  --acc-bg:rgba(76,141,255,.12);  --acc-br:rgba(76,141,255,.30);
+  --hair:rgba(232,236,242,.09); --press:rgba(255,255,255,.06);
+  --neutral-bg:rgba(140,151,168,.18);
+  --on-win:#9fe8c0; --on-warn:#f5cf9b; --on-loss:#f3a9ab; --on-info:#aecaff;
+  --bg-blur:rgba(11,14,19,.93); --shadow:rgba(0,0,0,.45);
+}
+/* blocul mizei, în forma compactă de la început */
+:root[data-design="original"] .next{
+  background:linear-gradient(160deg,#1a2130,#141922);border:1px solid #2c3647;padding:15px;
+}
+:root[data-design="original"] .segs{display:none}
+:root[data-design="original"] .next .top{margin-bottom:9px}
+:root[data-design="original"] .next .no{padding-top:3px}
+:root[data-design="original"] .stake{flex-direction:row;align-items:baseline;gap:9px;margin-bottom:3px}
+:root[data-design="original"] .stake .amt{font-size:33px;font-weight:700;letter-spacing:-.025em}
+:root[data-design="original"] .stake .pct{font-size:13px;color:var(--dim);font-weight:600}
+:root[data-design="original"] .hint{text-align:left;margin:0 0 12px;font-size:11.5px}
+/* în forma compactă rândul mizei nu încape cu tot cu încasare: o mut în notă */
+:root[data-design="original"] .stake .ret{display:none}
+:root[data-design="original"] .hint .ret2{display:inline}
+:root[data-design="original"] .next .btns .btn{padding:13px 10px;font-size:15px;border-radius:11px}
+:root[data-design="original"] .btn-w{color:#06231A}
+:root[data-design="original"] .btn-l{background:#D13036;color:#fff;box-shadow:none}
+:root[data-design="original"] .btn:active{filter:brightness(.86)}
+:root[data-design="original"] .cal .cell.has:active{filter:brightness(1.25)}
+:root[data-design="original"] .gmark{background:var(--warn);width:2px}
+:root[data-design="original"] .cal .cell.today{box-shadow:0 0 0 1.5px var(--warn)}
+@media (min-width:900px){
+  :root[data-design="original"] .stake{flex-direction:column;align-items:flex-start;gap:5px}
+  :root[data-design="original"] .stake .amt{font-size:46px}
+}
 
 /* ============================================================
    CALCULATOR
@@ -313,9 +370,9 @@ svg{display:block;width:100%;height:auto}
   .pl{font-size:22px}
 
   nav{
-    top:0;bottom:0;right:auto;width:216px;flex-direction:column;justify-content:flex-start;gap:3px;
-    background:var(--panel2);backdrop-filter:none;
-    border-top:0;border-right:1px solid var(--line);
+    position:fixed;left:0;top:0;bottom:0;z-index:40;
+    width:216px;flex-direction:column;justify-content:flex-start;gap:3px;overflow:visible;
+    background:var(--panel2);border-right:1px solid var(--line);
     padding:22px 14px 20px calc(14px + env(safe-area-inset-left));
   }
   nav button{flex:0 0 auto;text-align:left;font-size:14px;font-weight:500;padding:10px 13px;border-radius:9px}
@@ -344,7 +401,7 @@ svg{display:block;width:100%;height:auto}
 
 /* două coloane de carduri când ecranul permite */
 @media (min-width:1100px){
-  section#tab-s,section#tab-j,section#tab-a{
+  section#tab-s.on,section#tab-j.on,section#tab-a.on{
     display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;align-items:start;
   }
   section#tab-s>#banner,section#tab-s>#nextBox,
@@ -365,6 +422,13 @@ svg{display:block;width:100%;height:auto}
     </div>
     <button class="themeBtn" id="bTheme" data-act="theme" aria-label="Schimbă tema"></button>
   </div>
+  <nav>
+    <button class="on" data-t="s" data-act="tab">Sesiune</button>
+    <button data-t="z" data-act="tab">Zi</button>
+    <button data-t="j" data-act="tab">Jurnal</button>
+    <button data-t="a" data-act="tab">Analiză</button>
+    <button data-t="c" data-act="tab">Setări</button>
+</nav>
 </div></header>
 
 <div class="wrap">
@@ -593,6 +657,15 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Design</h2>
+    <div class="seg" id="designSeg">
+      <button data-act="designSet" data-v="registru">Registru</button>
+      <button data-act="designSet" data-v="original">Original</button>
+    </div>
+    <div class="note" id="designNote"></div>
+  </div>
+
+  <div class="card" id="themeCard">
     <h2>Aspect</h2>
     <div class="seg" id="themeSeg">
       <button data-act="themeSet" data-v="auto">Automat</button>
@@ -632,13 +705,6 @@ svg{display:block;width:100%;height:auto}
 </section>
 
 </div>
-<nav>
-    <button class="on" data-t="s" data-act="tab">Sesiune</button>
-    <button data-t="z" data-act="tab">Zi</button>
-    <button data-t="j" data-act="tab">Jurnal</button>
-    <button data-t="a" data-act="tab">Analiză</button>
-    <button data-t="c" data-act="tab">Setări</button>
-</nav>
 <div class="toast" id="toast"></div>
 <script>
 /* ============================================================
@@ -1126,13 +1192,14 @@ function renderNext(r){
     <div class="segs">${segs}</div>
     <div class="top">
       <span class="no">Tranzacția ${row.no} din ${st.N}</span>
-      <span class="req">Mai ai nevoie de ${plural(left,'câștig','câștiguri')}</span>
+      <span class="req"><span class="rl">Câștiguri / Rămase</span>
+        <b>${st.K - r.wins}<span class="sep">/</span>${st.N - r.used}</b></span>
     </div>
     <div class="stake">
       <span class="amt mono">${money(row.suggested)}</span>
-      <span class="pct mono">${pct(row.pctOfBal,2)} din balanță · aduce ${money(row.suggested*st.payout)}</span>
+      <span class="pct mono">${pct(row.pctOfBal,2)} din balanță<span class="ret"> · aduce ${money(row.suggested*st.payout)}</span></span>
     </div>
-    <div class="hint">Îți mai permiți ${plural(r.maxLosses-r.losses,'pierdere','pierderi')} până la lichidare.</div>
+    <div class="hint"><span class="ret2">Un câștig acum aduce ${money(row.suggested*st.payout)}. </span>Îți mai permiți ${plural(r.maxLosses-r.losses,'pierdere','pierderi')} până la lichidare.</div>
     <div class="edit">
       <div class="f"><label for="iStake">Miză reală</label>
         <input id="iStake" type="number" step="0.01" value="${row.suggested.toFixed(2)}"></div>
@@ -1386,7 +1453,7 @@ function equityChart(){
   const y=v=>pt+(H-pt-pb)*(1-(v-lo)/span);
   const line=pts.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
   const area=line+` L${x(pts.length-1).toFixed(1)} ${H-pb} L${x(0).toFixed(1)} ${H-pb} Z`;
-  const up=pts[pts.length-1]>=pts[0], col=up?'var(--win)':'var(--loss)';
+  const up=pts[pts.length-1]>=pts[0], col=up?'var(--win-v)':'var(--loss-v)';
   const base=y(pts[0]).toFixed(1);
   let gl='';
   for (const f of [0,.5,1]){ const v=lo+span*f, yy=y(v).toFixed(1);
@@ -1482,7 +1549,7 @@ function trendChart(){
   let bars='';
   days.forEach((d,i)=>{
     const yy=y(d.rate), base=y(lo), h=Math.max(1,base-yy);
-    const col=d.rate>=be?'var(--win)':'var(--loss)';
+    const col=d.rate>=be?'var(--win-v)':'var(--loss-v)';
     const op=(0.3+0.7*Math.min(1,d.n/Math.max(maxN,1))).toFixed(2);   // faint when few trades
     bars+=`<rect x="${(x(i)-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}" opacity="${op}"/>`;
   });
@@ -1495,7 +1562,7 @@ function trendChart(){
 
   $('#trendChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="height:auto">
     ${grid}${bars}
-    <line x1="${pl}" y1="${beY}" x2="${W-pr}" y2="${beY}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <line x1="${pl}" y1="${beY}" x2="${W-pr}" y2="${beY}" stroke="var(--warn-v)" stroke-width="1.5" stroke-dasharray="5 4"/>
     <rect x="${(W-pr-66).toFixed(1)}" y="${(+beY+2).toFixed(1)}" width="66" height="13" rx="3" fill="var(--panel)" opacity=".92"/>
     <text x="${W-pr-3}" y="${(+beY+11.5).toFixed(1)}" fill="var(--warn)" font-size="9.5" text-anchor="end" font-family="monospace">prag ${(be*100).toFixed(2)}%</text>
     <path d="${cumPath}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/>
@@ -1614,7 +1681,7 @@ function escChart(){
   ser.forEach((d,i)=>{
     const x=pl+gap*i+(gap-bw)/2, yy=y(d.bal), hh=Math.max(1,(H-pb)-yy);
     const dead = stopY!==null && d.bal < stopY-1e-9;
-    const col = d.bal<=1e-9?'var(--loss)':dead?'var(--line)':d.bal<0.6?'var(--warn)':'var(--accent)';
+    const col = d.bal<=1e-9?'var(--loss-v)':dead?'var(--line)':d.bal<0.6?'var(--warn-v)':'var(--accent)';
     bars+=`<rect x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="${col}"/>
       <text x="${(x+bw/2).toFixed(1)}" y="${H-14}" fill="var(--faint)" font-size="10" text-anchor="middle" font-family="monospace">${d.k}</text>
       <text x="${(x+bw/2).toFixed(1)}" y="${(yy-4).toFixed(1)}" fill="var(--dim)" font-size="9.5" text-anchor="middle" font-family="monospace">${(d.bal*100).toFixed(0)}</text>`;
@@ -1622,7 +1689,7 @@ function escChart(){
   let sl='';
   if (stopY!==null){
     const yy=y(stopY).toFixed(1);
-    sl=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    sl=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--warn-v)" stroke-width="1.5" stroke-dasharray="5 4"/>
         <text x="${W-pr}" y="${(+yy-5).toFixed(1)}" fill="var(--warn)" font-size="10" text-anchor="end" font-family="monospace">stop loss ${(stopY*100).toFixed(0)}%</text>`;
   }
   let gl='';
@@ -2042,6 +2109,7 @@ const ACTS = {
   fbIn:()=>fbDo('in'), fbUp:()=>fbDo('up'), fbOut:fbOut, fbReset:fbReset,
   theme:()=>setTheme(isDark() ? 'light' : 'dark'),
   themeSet:(el)=>setTheme(el.dataset.v),
+  designSet:(el)=>setDesign(el.dataset.v),
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
   wipe:doWipe,
@@ -2348,9 +2416,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 32 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 37 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 32 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 37 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -2400,16 +2468,21 @@ const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
   '<path d="M20.5 14.3A8.6 8.6 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8z"/></svg>';
 const mqDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 const themePref = () => { const v = LS.get('theme'); return (v==='dark'||v==='light') ? v : 'auto'; };
-const isDark = () => { const p = themePref();
+const designPref = () => (LS.get('design')==='original' ? 'original' : 'registru');
+const isDark = () => { if (designPref()==='original') return true;   // Original e doar întunecat
+  const p = themePref();
   return p==='dark' || (p==='auto' && !!(mqDark && mqDark.matches)); };
 
 function applyTheme(){
-  const dark = isDark();
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const dark = isDark(), dz = designPref();
+  const r = document.documentElement;
+  r.dataset.design = dz;
+  r.dataset.theme = dark ? 'dark' : 'light';
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.setAttribute('content', dark ? '#121110' : '#F7F4EE');
+  if (m) m.setAttribute('content', dz==='original' ? '#0b0e13' : (dark ? '#121110' : '#F7F4EE'));
   const b = $('#bTheme');
   if (b){
+    b.style.display = dz==='original' ? 'none' : '';   // Original nu are variantă deschisă
     b.innerHTML = dark ? SUN : MOON;
     b.setAttribute('aria-label', dark ? 'Treci pe tema deschisă' : 'Treci pe tema închisă');
     b.setAttribute('title', b.getAttribute('aria-label'));
@@ -2417,6 +2490,16 @@ function applyTheme(){
   renderThemeCard();
 }
 function renderThemeCard(){
+  const dz = designPref();
+  const dseg = $('#designSeg');
+  if (dseg){
+    [...dseg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===dz));
+    const dn = $('#designNote');
+    if (dn) dn.textContent = dz==='original'
+      ? 'Prima versiune: bleumarin, accent albastru, JetBrains Mono. Are doar variantă întunecată.'
+      : 'Hârtie caldă, cifre IBM Plex Mono, bandă de segmente pe sesiune. Merge și deschis, și închis.';
+  }
+  const card = $('#themeCard'); if (card) card.style.display = dz==='original' ? 'none' : '';
   const seg = $('#themeSeg'); if (!seg) return;
   const p = themePref();
   [...seg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===p));
@@ -2426,6 +2509,7 @@ function renderThemeCard(){
     : 'Fixată pe tema ' + (p==='dark'?'închisă':'deschisă') + ', indiferent de sistem.';
 }
 function setTheme(v){ LS.set('theme', v); applyTheme(); }
+function setDesign(v){ LS.set('design', v==='original' ? 'original' : 'registru'); applyTheme(); render(); }
 if (mqDark){
   const onSys = () => { if (themePref()==='auto') applyTheme(); };
   if (mqDark.addEventListener) mqDark.addEventListener('change', onSys);
