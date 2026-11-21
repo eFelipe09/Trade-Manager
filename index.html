@@ -589,6 +589,7 @@ svg{display:block;width:100%;height:auto}
 
   <div class="card">
     <h2>Risc la rata ta actuală</h2>
+    <div id="rTrunc"></div>
     <div class="grid">
       <div class="kv"><div class="k">Așteptare / sesiune</div><div class="v mono" id="rEv">—</div></div>
       <div class="kv"><div class="k">Sesiuni reușite</div><div class="v mono" id="rOk">—</div></div>
@@ -813,6 +814,40 @@ const breakEven = payout => 1/(1+payout);
 /* Brokerul acceptă doar cenți, deci tot planul lucrează în cenți:
    miza sugerată, proiecțiile și capitalul necesar. Fără asta, aplicația
    calcula cu fracțiuni de cent pe care nu le poți paria niciodată. */
+/* Citirea unei sume scrise de om.
+   „921,87", „921.87", „1.234,56", „1 234,56", „€921,87" — toate înseamnă
+   același lucru. parseFloat singur se oprește la primul separator și
+   transformă „1 000,50" în 1, adică exact genul de greșeală tăcută pe care
+   o unealtă de verificat banii n-are voie s-o facă. */
+function parseBani(txt){
+  if (typeof txt === 'number') return isFinite(txt) ? txt : NaN;
+  let t = String(txt == null ? '' : txt)
+    .replace(/[\s\u00a0\u202f]/g,'')
+    .replace(/[^\d.,+-]/g,'');
+  if (!t || !/\d/.test(t)) return NaN;
+  const semn = t.startsWith('-') ? -1 : 1;
+  t = t.replace(/[+-]/g,'');
+  const ultVirg = t.lastIndexOf(','), ultPunct = t.lastIndexOf('.');
+  if (ultVirg >= 0 && ultPunct >= 0){
+    const zec = Math.max(ultVirg, ultPunct);              // ultimul separator e cel zecimal
+    t = t.slice(0,zec).replace(/[.,]/g,'') + '.' + t.slice(zec+1).replace(/[.,]/g,'');
+  } else if (ultVirg >= 0 || ultPunct >= 0){
+    const sep = ultVirg >= 0 ? ',' : '.';
+    const idx = ultVirg >= 0 ? ultVirg : ultPunct;
+    const bucati = t.split(sep);
+    const dupa = t.length - idx - 1;
+    /* Virgula e zecimală, mereu — așa scrie lumea pe aici, deci „123,456"
+       înseamnă 123 și ceva, nu o sută douăzeci și trei de mii.
+       Punctul, în schimb, cu exact trei cifre după el, e separator de mii:
+       „1.234" e o mie două sute treizeci și patru. */
+    const miile = sep === '.' &&
+      (bucati.length > 2 || (dupa === 3 && bucati[0].length <= 3 && !/^0$/.test(bucati[0])));
+    t = miile ? t.replace(/[.,]/g,'') : t.slice(0,idx).replace(/[.,]/g,'') + '.' + t.slice(idx+1);
+  }
+  const n = parseFloat(t);
+  return isFinite(n) ? semn*n : NaN;
+}
+
 const round2 = v => Math.round((v + Number.EPSILON) * 100) / 100;
 const ceil2  = v => (isFinite(v) && Math.abs(v) < 1e9)
   ? Math.ceil((v - 1e-9) * 100) / 100 : v;
@@ -923,8 +958,16 @@ function normSettings(v){
   if (v.slMode === 'stop' || v.slMode === 'alert') o.slMode = v.slMode;
   if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
   num('fitMode', 0, 2); o.fitMode = Math.round(o.fitMode);
-  if (Array.isArray(v.ist))   o.ist   = v.ist.filter(x=>x && typeof x==='object' && x.k).slice(-80);
-  if (Array.isArray(v.recon)) o.recon = v.recon.filter(x=>x && isFinite(x.broker) && isFinite(x.app)).slice(-40);
+  /* Intrările stricate (venite dintr-o versiune veche sau dintr-un cloud
+     pe jumătate scris) ar ajunge altfel pe ecran ca „undefined → undefined". */
+  const vreme = t => { const n=Number(t); return isFinite(n) && n>0 && n<4e12; };
+  const bun = x => x && typeof x==='object' && typeof x.k==='string'
+      && vreme(x.t) && x.de!=null && x.la!=null
+      && ['number','string'].includes(typeof x.de) && ['number','string'].includes(typeof x.la);
+  if (Array.isArray(v.ist))   o.ist   = v.ist.filter(bun).slice(-80);
+  if (Array.isArray(v.recon)) o.recon = v.recon.filter(x=>x && typeof x==='object'
+      && isFinite(Number(x.broker)) && isFinite(Number(x.app)) && vreme(x.t))
+      .map(x=>({ t:Number(x.t), broker:Number(x.broker), app:Number(x.app) })).slice(-40);
   const uv=Number(v.ultimaVerif); if (isFinite(uv) && uv>0) o.ultimaVerif=uv;
   return o;
 }
@@ -1746,8 +1789,18 @@ function dataCheck(){
   }
   const sum   = ses.reduce((x,s)=>x+sesPL(s),0);
   const chain = ses.length ? ses[ses.length-1].end-ses[0].start : 0;
-  const clean = !breaks.length && !badEnds.length && !dups.length && !noisy.length;
-  return { ses, breaks, badEnds, dups, noisy, overs, sum, chain, ghost:sum-chain, clean };
+
+  /* Sesiunea deschisă trebuie să pornească de unde s-a oprit ultima închisă.
+     Dacă nu, aplicația arată o balanță pe care n-o susține nimic din jurnal. */
+  let cap = null;
+  if (ses.length){
+    const ultimEnd = ses[ses.length-1].end;
+    const pornire  = (S.current && isFinite(S.current.startBalance)) ? S.current.startBalance : S.settings.cap;
+    if (Math.abs(pornire-ultimEnd) > EPSC)
+      cap = { pornire, ultimEnd, dif:pornire-ultimEnd, blocat:!!((S.current&&S.current.trades||[]).length) };
+  }
+  const clean = !breaks.length && !badEnds.length && !dups.length && !noisy.length && !cap;
+  return { ses, breaks, badEnds, dups, noisy, overs, cap, sum, chain, ghost:sum-chain, clean };
 }
 
 let checkRes = null, repairArm = null, repairTimer = null;
@@ -1815,7 +1868,7 @@ function renderIstoric(){
     return;
   }
   box.innerHTML = ist.slice(0,24).map(x=>{
-    const u=URMARITE[x.k]; if (!u) return '';
+    const u=URMARITE[x.k]; if (!u || x.de==null || x.la==null || !isFinite(Number(x.t))) return '';
     return `<div class="ck-row"><span>${dayShort(dayKey(x.t))} ${hhmm(x.t)}</span>
       <span class="mono">${u.nume}: ${u.fmt(x.de)} → <b>${u.fmt(x.la)}</b></span></div>`;
   }).join('') + (ist.length>24 ? `<div class="ck-more">…și încă ${ist.length-24}</div>` : '');
@@ -1856,8 +1909,8 @@ function renderRecon(){
 }
 function salveazaRecon(){
   const el=$('#reconIn'); if (!el) return;
-  const v=parseFloat(String(el.value).replace(',','.'));
-  if (!isFinite(v) || v<0){ note('Scrie balanța de la broker.'); return; }
+  const v=parseBani(el.value);
+  if (!isFinite(v) || v<0 || v>1e12){ note('N-am înțeles suma. Scrie-o ca 921,87'); return; }
   const aici=round2(calc().balance);
   const lista = Array.isArray(S.settings.recon) ? S.settings.recon : [];
   lista.push({ t:Date.now(), broker:round2(v), app:aici });
@@ -1866,7 +1919,10 @@ function salveazaRecon(){
   el.value='';
   renderRecon();
   const dif=round2(v-aici);
-  note(Math.abs(dif)<=0.02 ? 'Se potrivesc.' : 'Diferență de '+sgn(dif)+'. Vezi verificarea datelor.');
+  /* arătăm ce am înțeles: dacă am citit greșit cifra, se vede pe loc */
+  note(Math.abs(dif)<=0.02
+    ? 'Am citit '+money(round2(v))+' — se potrivesc.'
+    : 'Am citit '+money(round2(v))+' · diferență de '+sgn(dif)+'. Vezi verificarea datelor.');
 }
 
 /* ---------- verificarea care se face singură ---------- */
@@ -1927,6 +1983,14 @@ function renderCheck(){
     btnFix('ends', 'Recalculează finalurile din tranzacții',
       'Sigur? Apasă din nou ca să recalculez '+plural(c.badEnds.length,'finalul','finalurile')));
 
+  if (c.cap) h += block('b-bad','&#9888;','Capitalul nu se potrivește cu jurnalul',
+    `Sesiunea curentă pornește de la <i>${money(c.cap.pornire)}</i>, dar ultima sesiune închisă s-a terminat la <i>${money(c.cap.ultimEnd)}</i>. `+
+    `Aplicația îți arată cu <i>${sgn(c.cap.dif)}</i> ${c.cap.dif>0?'mai mult':'mai puțin'} decât susține jurnalul.`+
+    (c.cap.blocat
+      ? `<div class="ck-hint">Ai o sesiune în curs cu tranzacții în ea. Închide-o întâi — nu-ți schimb balanța de start sub mizele deja jucate.</div>`
+      : btnFix('cap', 'Pune capitalul la '+money(c.cap.ultimEnd),
+               'Sigur? Apasă din nou — '+money(c.cap.pornire)+' → '+money(c.cap.ultimEnd))));
+
   if (Math.abs(c.ghost)>0.02) h += block('b-warn','&#9888;','Profit fantomă',
     `Suma profiturilor pe sesiuni e <i>${sgn(c.sum)}</i>, dar capitalul a crescut de fapt cu <i>${sgn(c.chain)}</i>. `+
     `Diferența de <i>${sgn(c.ghost)}</i> vine din rupturile și dublurile de mai sus.`);
@@ -1963,9 +2027,30 @@ function fixEnds(){
     const vrea=round4(s.start+sesPL(s));
     if (Math.abs(vrea-s.end)>EPSC){ s.end=vrea; n++; }
   }
-  saveLog(); render();
+  saveLog();
+  /* dacă finalul care s-a schimbat era ultimul, balanța de pornire trebuie să-l urmeze */
+  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
+  if (n && ses.length && !((S.current&&S.current.trades||[]).length)){
+    const v=round2(ses[ses.length-1].end);
+    if (Math.abs((S.current?S.current.startBalance:S.settings.cap)-v)>EPSC){
+      S.settings.cap=v; S.current={ startBalance:v, trades:[], n:sessionsToday()+1 };
+      dbSet('settings',S.settings); dbSet('current',S.current);
+    }
+  }
+  render();
   note(n ? `${plural(n,'final recalculat','finaluri recalculate')} din tranzacții.` : 'N-am găsit ce recalcula.');
   return n;
+}
+function fixCapital(){
+  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
+  if (!ses.length) return 0;
+  if ((S.current&&S.current.trades||[]).length){ note('Închide întâi sesiunea în curs.'); return 0; }
+  const v=round4(ses[ses.length-1].end);
+  S.settings.cap=round2(v);
+  S.current={ startBalance:S.settings.cap, trades:[], n:sessionsToday()+1 };
+  dbSet('settings',S.settings); dbSet('current',S.current);
+  render(); note('Capital pus la '+money(S.settings.cap));
+  return 1;
 }
 function fixDuplicat(dataSes){
   const i=S.sessions.findIndex(s=>String(s.date)===String(dataSes));
@@ -2154,7 +2239,7 @@ function simRezultate(cfg){
   const st=S.settings;
   const d = sessionDist(cfg.p, cfg.N, cfg.K, cfg.payout, st.slPct, st.slMode);
   const rc = ruinCurve(d, [100,500], 4000);
-  return { d, r100:rc[0], r500:rc[1], be:breakEven(cfg.payout) };
+  return { d, r100:rc[0], r500:rc[1], be:breakEven(cfg.payout), taiat:!!d.truncated };
 }
 function renderSim(){
   simInit();
@@ -2186,10 +2271,17 @@ function renderSim(){
     ${linie('Risc de ruină, 500 sesiuni', acum.r500.ruin, nou.r500.ruin, v=>P(v), d=>d<0)}
     ${linie('Rezultat median, 100 sesiuni', acum.r100.med, nou.r100.med, v=>v<0.01?'0':v.toFixed(2)+'×', d=>d>0)}
     </tbody></table>`;
+  const taiat = acum.taiat || nou.taiat;
+  $('#simOut').innerHTML = (taiat ? `<div class="banner b-warn" style="margin:0 0 9px"><span class="ic">&#9888;</span>
+      <span><b>Cifre aproximative</b>La ${nou.taiat?'parametrii simulați':'parametrii tăi'} sunt prea multe traiectorii ca să le parcurg pe toate,
+      așa că am oprit numărătoarea după 400.000. Diferența e mică, dar rândurile de mai jos nu mai sunt exacte.</span></div>` : '')
+    + $('#simOut').innerHTML;
   $('#simNote').innerHTML = (real
       ? `Rata de ${pct(real.rate,2)} vine din toate cele ${nr(real.n)}tranzacții din istoricul tău, aceeași pe care o vezi în Analiză. `
       : `N-ai încă tranzacții înregistrate, așa că rata e doar o presupunere. `)
-    + `Primele patru rânduri sunt exacte, nu estimate: aplicația parcurge fiecare traiectorie posibilă a unei sesiuni. `
+    + (taiat
+        ? `Primele patru rânduri ar fi exacte la parametri mai mici; aici sunt aproximate, din motivul de mai sus. `
+        : `Primele patru rânduri sunt exacte, nu estimate: aplicația parcurge fiecare traiectorie posibilă a unei sesiuni. `)
     + `Riscul de ruină și medianul vin din 4000 de serii simulate, deci se clatină cu câteva zecimi de la o apăsare la alta. `
     + `Nimic de aici nu-ți schimbă setările.`;
 }
@@ -2212,6 +2304,10 @@ function serieMax(v, cauta){
 }
 /* cât de lungă ar fi cea mai lungă serie de pierderi dacă n-ar exista nicio
    legătură între tranzacții: o aflăm amestecând la nesfârșit aceeași monedă */
+/* Numărul de amestecări scade pe măsură ce șirul crește: altfel, la câteva mii
+   de tranzacții, tabul ar sta blocat secunde bune. Chiar și 2000 de amestecări
+   dau percentila cu o precizie mult peste cât ne trebuie aici. */
+function cateAmestecari(n){ return Math.max(2000, Math.min(20000, Math.round(3e6/Math.max(n,1)))); }
 function serieAsteptata(n, p, runs){
   const obs=[];
   for (let r=0;r<runs;r++){
@@ -2235,7 +2331,7 @@ function renderGrupare(){
   if (!t){ box.innerHTML=`<div class="empty">Toate tranzacțiile au ieșit la fel — n-are ce testa.</div>`; nota.textContent=''; return; }
   const p=t.n1/t.n;
   const maxObs=serieMax(v,0);
-  const dist=serieAsteptata(t.n, p, 20000);
+  const dist=serieAsteptata(t.n, p, cateAmestecari(t.n));
   let mai=0; for (const x of dist) if (x>=maxObs) mai++;
   const pct95=dist[Math.floor(dist.length*0.95)];
   const probSerie=mai/dist.length;
@@ -2404,6 +2500,11 @@ function renderAnalysis(){
     : `Ești cu ${Math.abs(edge*100).toFixed(2)} puncte <b>sub</b> prag. La această rată, fiecare sesiune are o valoare așteptată negativă, oricât de multe sesiuni reușite ai la rând.`;
 
   const d = sessionDist(p, st.N, st.K, st.payout, st.slPct, st.slMode);
+  const rTrunc=$('#rTrunc');
+  if (rTrunc) rTrunc.innerHTML = d.truncated
+    ? `<div class="banner b-warn" style="margin:0 0 9px"><span class="ic">&#9888;</span>
+       <span><b>Cifre aproximative</b>La ${st.N} tranzacții cu ${st.K} câștiguri sunt prea multe traiectorii
+       ca să le pot parcurge pe toate. Valorile de mai jos sunt apropiate, nu exacte.</span></div>` : '';
   $('#rEv').innerHTML=`<span class="${cls(d.ev)}">${(d.ev>0?'+':'')+(d.ev*100).toFixed(3)}%</span>`;
   $('#rOk').textContent=pct(d.okProb,1);
   $('#rWorst').textContent=pct(d.worst-1,1);
@@ -2651,7 +2752,7 @@ function renderSettings(){
 function addTrade(result){
   const r=calc(); if (r.status!=='open') return;
   const row=r.rows[r.rows.length-1]; if (!row) return;
-  const inp=$('#iStake'); let stake=parseFloat(inp?inp.value:NaN);
+  const inp=$('#iStake'); let stake=parseBani(inp?inp.value:NaN);
   if (!isFinite(stake)||stake<=0) stake=row.suggested;
   stake=Math.min(stake, row.before);
   const c=cur();
@@ -2861,6 +2962,7 @@ const ACTS = {
     if (k==='chain') repairChain();
     else {
       if (k==='ends') fixEnds();
+      else if (k==='cap') fixCapital();
       else if (k.startsWith('dup:')) fixDuplicat(k.slice(4));
       checkRes=dataCheck(); renderCheck();
     }
@@ -2917,13 +3019,13 @@ document.addEventListener('click', function(e){
 }, true);
 
 const SETTINGS_MAP = {
-  pCap:['cap', v=>{ const n=parseFloat(v); if(!isFinite(n)||n<=0) return null;
+  pCap:['cap', v=>{ const n=parseBani(v); if(!isFinite(n)||n<=0) return null;
         // an untouched session can simply adopt the new figure; one with trades cannot
         if (S.current && !(S.current.trades||[]).length){ S.current.startBalance=n; dbSet('current',S.current); }
         else note('Se aplic\u0103 de la sesiunea urm\u0103toare');
         return n; }],
   pCur:['cur', v=>v],
-  pMin:['minStake', v=>{ const n=parseFloat(v); return (n>0&&n<=10000)?n:null; }],
+  pMin:['minStake', v=>{ const n=parseBani(v); return (n>0&&n<=10000)?n:null; }],
   pFitOnly:['fitMode', v=>{ const n=parseInt(v,10); return (n>=0&&n<=2)?n:null; }],
   pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
   pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
@@ -3212,9 +3314,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 49 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 50 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 49 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 50 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
