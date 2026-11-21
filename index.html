@@ -8,22 +8,15 @@
 /* Rulează înaintea stilurilor: fără asta, o temă închisă ar porni cu
    un fulger alb la fiecare deschidere. */
 (function(){
-  var p='auto', d='registru';
+  var p='auto';
   try{ p = JSON.parse(localStorage.getItem('tm_theme')) || 'auto'; }catch(e){}
-  try{ d = JSON.parse(localStorage.getItem('tm_design')) || 'registru'; }catch(e){}
-  var FIX = { original:'dark', luxury:'dark', certificat:'light' };
-  var BAR = { registru:{light:'#F7F4EE',dark:'#121110'}, original:{dark:'#0b0e13'},
-              luxury:{dark:'#0A0A0B'}, certificat:{light:'#F4EFE2'} };
-  if (!Object.prototype.hasOwnProperty.call(BAR, d)) d='registru';
-  var fix = Object.prototype.hasOwnProperty.call(FIX, d) ? FIX[d] : null;
-  var dark = fix ? fix==='dark'
-    : (p==='dark' || (p==='auto' && window.matchMedia &&
-       matchMedia('(prefers-color-scheme: dark)').matches));
+  var dark = p==='dark' || (p==='auto' && window.matchMedia &&
+             matchMedia('(prefers-color-scheme: dark)').matches);
   var r=document.documentElement;
-  r.dataset.design = d;
+  r.dataset.design = 'original';
   r.dataset.theme = dark ? 'dark' : 'light';
   var m=document.querySelector('meta[name="theme-color"]');
-  if(m) m.setAttribute('content', BAR[d][dark?'dark':'light'] || '#F7F4EE');
+  if(m) m.setAttribute('content', dark ? '#0b0e13' : '#F2F4F8');
 })();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -36,25 +29,25 @@
 <title>Trade Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Cormorant+Garamond:wght@300;400;500&family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Registru: hârtie caldă, cerneală închisă, linii subțiri. Verdele-petrol
-     și cărămiziul se disting și după luminozitate, nu doar după nuanță. */
-  --bg:#F7F4EE; --panel:#FFFDF8; --panel2:#F1ECE2; --line:#DED7C9;
-  --txt:#1C1B18; --dim:#55504A; --faint:#6E675B;
-  --win:#067647; --loss:#C2301F; --warn:#8A5A00; --accent:#067647;
-  --win-v:#0E9A45; --loss-v:#E02424; --warn-v:#E8900A;
-  --on-solid:#FFFDF8;
-  --mono:var(--mono);
-  --win-bg:rgba(14,154,69,.16);  --win-br:rgba(14,154,69,.42);
-  --loss-bg:rgba(224,36,36,.14);  --loss-br:rgba(224,36,36,.40);
-  --warn-bg:rgba(232,144,10,.16); --warn-br:rgba(232,144,10,.44);
-  --acc-bg:rgba(14,154,69,.14);   --acc-br:rgba(14,154,69,.36);
-  --hair:rgba(28,27,24,.10); --press:rgba(28,27,24,.06);
-  --neutral-bg:rgba(110,103,91,.14);
-  --on-win:#0B4F47; --on-warn:#6B4600; --on-loss:#8A3722; --on-info:#0B4F47;
-  --bg-blur:rgba(247,244,238,.95); --shadow:rgba(28,27,24,.16);
+  /* Original, varianta deschisă: aceeași identitate — albastru, JetBrains Mono —
+     mutată pe fundal deschis, cu aceleași praguri de lizibilitate. */
+  --bg:#F2F4F8; --panel:#FFFFFF; --panel2:#E9EDF3; --line:#D4DBE5;
+  --txt:#111826; --dim:#4A5468; --faint:#5E687C;
+  --win:#00753B; --loss:#CC0700; --warn:#8F5A00; --accent:#0058F0;
+  --win-v:#00944A; --loss-v:#FF211A; --warn-v:#B87400;
+  --on-solid:#FFFFFF;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --win-bg:rgba(0,148,74,.13);   --win-br:rgba(0,148,74,.40);
+  --loss-bg:rgba(255,33,26,.11); --loss-br:rgba(255,33,26,.38);
+  --warn-bg:rgba(184,116,0,.13); --warn-br:rgba(184,116,0,.38);
+  --acc-bg:rgba(0,88,240,.10);   --acc-br:rgba(0,88,240,.30);
+  --hair:rgba(17,24,38,.10); --press:rgba(17,24,38,.06);
+  --neutral-bg:rgba(94,104,124,.14);
+  --on-win:#044027; --on-warn:#5C3B00; --on-loss:#8A0500; --on-info:#0A3C8F;
+  --bg-blur:rgba(242,244,248,.95); --shadow:rgba(17,24,38,.16);
   --r:14px;
 }
 
@@ -62,19 +55,19 @@
    Aceeași limbă vizuală, pe fundal cald închis: verde-petrol și cărămiziu
    ridicate ca luminozitate ca să rămână lizibile. */
 :root[data-theme="dark"]{
-  --bg:#121110; --panel:#1A1917; --panel2:#232120; --line:#332F2B;
-  --txt:#F0EBE2; --dim:#BDB5A5; --faint:#ACA292;
-  --win:#3ED47E; --loss:#FF7A63; --warn:#F2B33D; --accent:#3ED47E;
-  --win-v:#3ED47E; --loss-v:#FF7A63; --warn-v:#F2B33D;
-  --on-solid:#0C1A17;
-  --win-bg:rgba(62,212,126,.16);  --win-br:rgba(62,212,126,.40);
-  --loss-bg:rgba(255,122,99,.16); --loss-br:rgba(255,122,99,.40);
-  --warn-bg:rgba(242,179,61,.15); --warn-br:rgba(242,179,61,.38);
-  --acc-bg:rgba(62,212,126,.15);  --acc-br:rgba(62,212,126,.36);
-  --hair:rgba(240,235,226,.10); --press:rgba(240,235,226,.07);
-  --neutral-bg:rgba(169,162,148,.16);
-  --on-win:#B4F2CE; --on-warn:#F7DCA8; --on-loss:#FFC9BC; --on-info:#B4F2CE;
-  --bg-blur:rgba(18,17,16,.95); --shadow:rgba(0,0,0,.5);
+  --bg:#0b0e13; --panel:#141922; --panel2:#1b212c; --line:#262e3b;
+  --txt:#e8ecf2; --dim:#9aa4b6; --faint:#8893a8;
+  --win:#2fbf71; --loss:#ec5e62; --warn:#f0a035; --accent:#4c8dff;
+  --win-v:#2fbf71; --loss-v:#e5484d; --warn-v:#f0a035;
+  --on-solid:#ffffff;
+  --win-bg:rgba(47,191,113,.13);  --win-br:rgba(47,191,113,.32);
+  --loss-bg:rgba(229,72,77,.13);  --loss-br:rgba(229,72,77,.33);
+  --warn-bg:rgba(240,160,53,.12); --warn-br:rgba(240,160,53,.32);
+  --acc-bg:rgba(76,141,255,.12);  --acc-br:rgba(76,141,255,.30);
+  --hair:rgba(232,236,242,.09); --press:rgba(255,255,255,.06);
+  --neutral-bg:rgba(140,151,168,.18);
+  --on-win:#9fe8c0; --on-warn:#f5cf9b; --on-loss:#f3a9ab; --on-info:#aecaff;
+  --bg-blur:rgba(11,14,19,.93); --shadow:rgba(0,0,0,.45);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -328,27 +321,9 @@ svg{display:block;width:100%;height:auto}
 
 
 /* ============================================================
-   DESIGN: ORIGINAL
-   Prima versiune a aplicației — bleumarin închis, accent albastru,
-   JetBrains Mono. Are o singură variantă, întunecată, deci regulile
-   astea stau după cele de temă și le acoperă.
+   FORMA ECRANULUI DE SESIUNE
+   Blocul mizei, compact, cum era în prima versiune.
    ============================================================ */
-:root[data-design="original"]{
-  --bg:#0b0e13; --panel:#141922; --panel2:#1b212c; --line:#262e3b;
-  --txt:#e8ecf2; --dim:#9aa4b6; --faint:#8893a8;
-  --win:#2fbf71; --loss:#ec5e62; --warn:#f0a035; --accent:#4c8dff;
-  --win-v:#2fbf71; --loss-v:#e5484d; --warn-v:#f0a035;
-  --on-solid:#ffffff;
-  --mono:'JetBrains Mono',ui-monospace,monospace;
-  --win-bg:rgba(47,191,113,.13);  --win-br:rgba(47,191,113,.32);
-  --loss-bg:rgba(229,72,77,.13);  --loss-br:rgba(229,72,77,.33);
-  --warn-bg:rgba(240,160,53,.12); --warn-br:rgba(240,160,53,.32);
-  --acc-bg:rgba(76,141,255,.12);  --acc-br:rgba(76,141,255,.30);
-  --hair:rgba(232,236,242,.09); --press:rgba(255,255,255,.06);
-  --neutral-bg:rgba(140,151,168,.18);
-  --on-win:#9fe8c0; --on-warn:#f5cf9b; --on-loss:#f3a9ab; --on-info:#aecaff;
-  --bg-blur:rgba(11,14,19,.93); --shadow:rgba(0,0,0,.45);
-}
 /* blocul mizei, în forma compactă de la început */
 :root[data-design="original"] .next{
   background:linear-gradient(160deg,#1a2130,#141922);border:1px solid #2c3647;padding:15px;
@@ -371,112 +346,15 @@ svg{display:block;width:100%;height:auto}
 :root[data-design="original"] .cal .cell.has:active{filter:brightness(1.25)}
 :root[data-design="original"] .gmark{background:var(--warn);width:2px}
 :root[data-design="original"] .cal .cell.today{box-shadow:0 0 0 1.5px var(--warn)}
+/* pe fundal deschis, blocul mizei și textul de pe butonul verde se întorc */
+:root[data-theme="light"][data-design="original"] .next{
+  background:linear-gradient(160deg,#FFFFFF,#EDF1F8);border:1px solid var(--line);
+}
+:root[data-theme="light"][data-design="original"] .btn-w{color:#FFFFFF}
 @media (min-width:900px){
   :root[data-design="original"] .stake{flex-direction:column;align-items:flex-start;gap:5px}
   :root[data-design="original"] .stake .amt{font-size:46px}
 }
-
-/* ============================================================
-   DESIGN: LUXURY
-   Negru cu aur, dar aurul apare în patru locuri, nu peste tot:
-   P/L-ul pozitiv, filetul, colțarele mizei și butonul de câștig.
-   Cifrele mari sunt cu serife; tabelele rămân monospaced, altfel
-   coloanele nu se mai aliniază.
-   ============================================================ */
-:root[data-design="luxury"]{
-  --bg:#0A0A0B; --panel:#111013; --panel2:#19181A; --line:#27251F;
-  --txt:#F2EEE4; --dim:#B3AA98; --faint:#9A9282;
-  --win:#C8A54A; --loss:#E09288; --warn:#D7B45E; --accent:#C8A54A;
-  --win-v:#C8A54A; --loss-v:#C45A4E; --warn-v:#D7B45E;
-  --on-solid:#14110A;
-  --win-bg:rgba(200,165,74,.13);  --win-br:rgba(200,165,74,.40);
-  --loss-bg:rgba(196,90,78,.14);  --loss-br:rgba(196,90,78,.40);
-  --warn-bg:rgba(215,180,94,.12); --warn-br:rgba(215,180,94,.34);
-  --acc-bg:rgba(200,165,74,.12);  --acc-br:rgba(200,165,74,.34);
-  --hair:rgba(242,238,228,.09); --press:rgba(242,238,228,.06);
-  --neutral-bg:rgba(154,146,130,.16);
-  --on-win:#EAD69B; --on-warn:#EFDCA6; --on-loss:#F3C3BB; --on-info:#EAD69B;
-  --bg-blur:rgba(10,10,11,.95); --shadow:rgba(0,0,0,.55);
-}
-:root[data-design="luxury"] .bal .val,
-:root[data-design="luxury"] .pl .mono,
-:root[data-design="luxury"] .stake .amt,
-:root[data-design="luxury"] .big,
-:root[data-design="luxury"] .next .req b{
-  font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;letter-spacing:0;
-}
-:root[data-design="luxury"] .stake .amt{font-weight:300;font-size:72px}
-:root[data-design="luxury"] .card > h2,
-:root[data-design="luxury"] .kv .k,
-:root[data-design="luxury"] .fld label,
-:root[data-design="luxury"] .next .req .rl{letter-spacing:.22em;font-weight:500}
-:root[data-design="luxury"] .next .no{letter-spacing:.1em}
-/* colțare de bijutier în loc de chenar */
-:root[data-design="luxury"] .next{
-  background:transparent;border:0;border-radius:0;padding:4px 2px 16px;margin:6px 2px 14px;
-}
-/* colțare de bijutier, strânse în jurul numărului */
-:root[data-design="luxury"] .stake{
-  position:relative;padding:22px 10px 20px;margin:14px 0 2px;
-}
-:root[data-design="luxury"] .stake::before,
-:root[data-design="luxury"] .stake::after{
-  content:'';position:absolute;width:15px;height:15px;border:0 solid var(--accent);
-}
-:root[data-design="luxury"] .stake::before{left:0;top:0;border-left-width:1px;border-top-width:1px}
-:root[data-design="luxury"] .stake::after{right:0;bottom:0;border-right-width:1px;border-bottom-width:1px}
-:root[data-design="luxury"] .segs i{height:5px;border-radius:50%;flex:0 0 5px;margin:0 auto}
-:root[data-design="luxury"] .segs{gap:6px;justify-content:flex-start}
-:root[data-design="luxury"] .btn{border-radius:0;font-weight:500}
-:root[data-design="luxury"] .btn-w,:root[data-design="luxury"] .btn-l{letter-spacing:.26em;font-size:12.5px}
-:root[data-design="luxury"] .btn-l{background:transparent;color:var(--loss);box-shadow:inset 0 0 0 1px #4A2B26}
-:root[data-design="luxury"] input,:root[data-design="luxury"] select,
-:root[data-design="luxury"] textarea{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0}
-
-/* ============================================================
-   DESIGN: CERTIFICAT
-   Hârtie de valoare: guilloche fin în fundal, bordură dublă pe
-   carduri, cifre gravate, bordo și verde de registru.
-   ============================================================ */
-:root[data-design="certificat"]{
-  --bg:#F4EFE2; --panel:#FAF6EC; --panel2:#EDE6D6; --line:#D9CFB8;
-  --txt:#1A1A18; --dim:#4A453C; --faint:#6B6457;
-  --win:#00702F; --loss:#C2001A; --warn:#805900; --accent:#7B2231;
-  --win-v:#008F3C; --loss-v:#FA0021; --warn-v:#A37200;
-  --on-solid:#F4EFE2;
-  --win-bg:rgba(0,143,60,.14);  --win-br:rgba(0,143,60,.44);
-  --loss-bg:rgba(250,0,33,.12);  --loss-br:rgba(250,0,33,.42);
-  --warn-bg:rgba(163,114,0,.13); --warn-br:rgba(163,114,0,.40);
-  --acc-bg:rgba(123,34,49,.10);  --acc-br:rgba(123,34,49,.30);
-  --hair:rgba(26,26,24,.14); --press:rgba(26,26,24,.06);
-  --neutral-bg:rgba(107,100,87,.16);
-  --on-win:#1E3F2A; --on-warn:#5A3D0A; --on-loss:#5E1824; --on-info:#1E3F2A;
-  --bg-blur:rgba(244,239,226,.95); --shadow:rgba(26,26,24,.18);
-}
-:root[data-design="certificat"] .bal .val,
-:root[data-design="certificat"] .pl .mono,
-:root[data-design="certificat"] .stake .amt,
-:root[data-design="certificat"] .big,
-:root[data-design="certificat"] .kv .v,
-:root[data-design="certificat"] .next .req b{
-  font-family:'EB Garamond',Georgia,serif;font-weight:500;letter-spacing:.01em;
-}
-:root[data-design="certificat"] .stake .amt{font-weight:400;font-size:62px}
-:root[data-design="certificat"] .card{
-  border:1.5px solid var(--loss);border-radius:4px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 3.5px rgba(123,34,49,.45);
-  padding:17px;
-}
-:root[data-design="certificat"] .card > h2{letter-spacing:.3em;color:var(--loss);font-weight:700}
-:root[data-design="certificat"] .kv{background:transparent;border-bottom:1px dotted rgba(26,26,24,.35);border-radius:0;padding:8px 2px}
-:root[data-design="certificat"] .next{border:0;border-top:1px solid rgba(26,26,24,.3);border-bottom:1px solid rgba(26,26,24,.3);
-  border-radius:0;background:transparent;padding:20px 4px 18px;margin:4px 2px 14px}
-:root[data-design="certificat"] .segs i{height:3px;border-radius:0}
-:root[data-design="certificat"] .btn{border-radius:2px;font-weight:600}
-:root[data-design="certificat"] .btn-w,:root[data-design="certificat"] .btn-l{letter-spacing:.22em;font-size:12.5px}
-:root[data-design="certificat"] .btn-l{background:transparent;color:var(--loss);box-shadow:inset 0 0 0 1.5px var(--loss)}
-:root[data-design="certificat"] input,:root[data-design="certificat"] select,
-:root[data-design="certificat"] textarea{background:var(--panel);border-radius:2px;font-family:'EB Garamond',Georgia,serif;font-size:16px}
-:root[data-design="certificat"] .tbl td{border-bottom:1px dotted rgba(26,26,24,.3)}
 
 /* ============================================================
    CALCULATOR
@@ -790,17 +668,6 @@ svg{display:block;width:100%;height:auto}
     </div>
     <div class="note" id="slNote"></div>
     <div id="slWarn"></div>
-  </div>
-
-  <div class="card">
-    <h2>Design</h2>
-    <div class="seg" id="designSeg">
-      <button data-act="designSet" data-v="registru">Registru</button>
-      <button data-act="designSet" data-v="original">Original</button>
-      <button data-act="designSet" data-v="luxury">Luxury</button>
-      <button data-act="designSet" data-v="certificat">Certificat</button>
-    </div>
-    <div class="note" id="designNote"></div>
   </div>
 
   <div class="card" id="themeCard">
@@ -2543,7 +2410,6 @@ const ACTS = {
   fbIn:()=>fbDo('in'), fbUp:()=>fbDo('up'), fbOut:fbOut, fbReset:fbReset,
   theme:()=>setTheme(isDark() ? 'light' : 'dark'),
   themeSet:(el)=>setTheme(el.dataset.v),
-  designSet:(el)=>setDesign(el.dataset.v),
   importToggle:()=>{ const b=$('#importBox'); b.style.display = b.style.display==='none'?'block':'none'; },
   importCancel:()=>{ $('#importBox').style.display='none'; },
   wipe:doWipe,
@@ -2850,9 +2716,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 46 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 46 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -2903,23 +2769,16 @@ const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const mqDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 const themePref = () => { const v = LS.get('theme'); return (v==='dark'||v==='light') ? v : 'auto'; };
 const DESIGNS = {
-  registru:   { nume:'Registru',   fix:null,
-    nota:'Hârtie caldă, cifre IBM Plex Mono, bandă de segmente pe sesiune. Merge și deschis, și închis.' },
-  original:   { nume:'Original',   fix:'dark',
-    nota:'Prima versiune: bleumarin, accent albastru, JetBrains Mono. Are doar variantă întunecată.' },
-  luxury:     { nume:'Luxury',     fix:'dark',
-    nota:'Negru cu aur, colțare de bijutier în jurul mizei, cifre cu serife. Doar variantă întunecată.' },
-  certificat: { nume:'Certificat', fix:'light',
-    nota:'Hârtie de valoare: bordură dublă bordo, cifre gravate, verde de registru. Doar variantă deschisă.' }
+  original: { nume:'Original', fix:null,
+    nota:'Bleumarin, accent albastru, JetBrains Mono. Merge și deschis, și închis.' }
 };
 const hasDesign = v => typeof v === 'string' && Object.prototype.hasOwnProperty.call(DESIGNS, v);
-const designPref = () => { const v = LS.get('design'); return hasDesign(v) ? v : 'registru'; };
+const designPref = () => 'original';     // un singur design, cu temă deschisă și închisă
 const isDark = () => { const fix = DESIGNS[designPref()].fix;
   if (fix) return fix==='dark';                       // designul își impune schema
   const p = themePref();
   return p==='dark' || (p==='auto' && !!(mqDark && mqDark.matches)); };
-const BARS = { registru:{light:'#F7F4EE',dark:'#121110'}, original:{dark:'#0b0e13'},
-               luxury:{dark:'#0A0A0B'}, certificat:{light:'#F4EFE2'} };
+const BARS = { original:{ light:'#F2F4F8', dark:'#0b0e13' } };
 
 function applyTheme(){
   const dark = isDark(), dz = designPref();
@@ -2927,7 +2786,7 @@ function applyTheme(){
   r.dataset.design = dz;
   r.dataset.theme = dark ? 'dark' : 'light';
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.setAttribute('content', (BARS[dz]||BARS.registru)[dark?'dark':'light'] || '#F7F4EE');
+  if (m) m.setAttribute('content', (BARS[dz]||BARS.original)[dark?'dark':'light'] || '#F7F4EE');
   const b = $('#bTheme');
   if (b){
     b.style.display = DESIGNS[dz].fix ? 'none' : '';   // un design cu schemă fixă n-are ce comuta
@@ -2938,14 +2797,6 @@ function applyTheme(){
   renderThemeCard();
 }
 function renderThemeCard(){
-  const dz = designPref();
-  const dseg = $('#designSeg');
-  if (dseg){
-    [...dseg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===dz));
-    const dn = $('#designNote');
-    if (dn) dn.textContent = DESIGNS[dz].nota;
-  }
-  const card = $('#themeCard'); if (card) card.style.display = DESIGNS[dz].fix ? 'none' : '';
   const seg = $('#themeSeg'); if (!seg) return;
   const p = themePref();
   [...seg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===p));
@@ -2955,7 +2806,7 @@ function renderThemeCard(){
     : 'Fixată pe tema ' + (p==='dark'?'închisă':'deschisă') + ', indiferent de sistem.';
 }
 function setTheme(v){ LS.set('theme', v); applyTheme(); }
-function setDesign(v){ LS.set('design', hasDesign(v) ? v : 'registru'); applyTheme(); render(); }
+function setDesign(){ applyTheme(); render(); }
 if (mqDark){
   const onSys = () => { if (themePref()==='auto') applyTheme(); };
   if (mqDark.addEventListener) mqDark.addEventListener('change', onSys);
