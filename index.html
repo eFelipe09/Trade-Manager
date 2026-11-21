@@ -2311,72 +2311,10 @@ function renderSettings(){
 /* ============================================================
    ACTIONS
    ============================================================ */
-/* ---------- Punte către extensia de browser ----------
-   Extensia nu poate apela codul paginii, dar împărțim același DOM, deci
-   vorbim prin evenimente. Aplicația rămâne singura care ține socoteala:
-   extensia doar întreabă ce miză urmează și raportează ce s-a întâmplat.
-   Nimic din ce vine pe aici nu plasează o tranzacție la broker. */
-function bridgeState(){
-  try{
-    const r=calc(), c=cur(), st=S.settings;
-    const row=r.rows.length ? r.rows[r.rows.length-1] : null;
-    const open = r.status==='open' && row && !row.result;
-    return { v:1, ok:true,
-      moneda:st.cur, balanta:round2(r.balance), payout:st.payout,
-      miza: open ? row.suggested : null,
-      totIn: !!(open && row.allIn),
-      nr: open ? row.no : null, N:st.N, K:st.K,
-      castiguri:r.wins, maiTrebuie:Math.max(0,st.K-r.wins),
-      ramase:Math.max(0,st.N-r.used),
-      stare:r.status, pl:round2(r.pl), tinta:round2(r.goal),
-      sesiune:c.n, sesiuneGoala:!(c.trades||[]).length };
-  }catch(e){ return { v:1, ok:false, eroare:String(e&&e.message||e) }; }
-}
-function bridgeSend(){
-  try{ document.dispatchEvent(new CustomEvent('tm-state',{ detail: bridgeState() })); }catch(e){}
-}
-document.addEventListener('tm-cmd', ev=>{
-  const d=(ev && ev.detail) || {};
-  try{
-    switch(d.cmd){
-      case 'stare': break;
-      case 'castig':
-      case 'pierdere': {
-        const miza = Number(d.miza);
-        addTrade(d.cmd==='castig'?'W':'L', isFinite(miza)&&miza>0 ? miza : undefined);
-        break;
-      }
-      case 'undo':  undo(); break;
-      case 'inchide': logSession(true); break;
-      case 'payout': {
-        const v=Number(d.valoare);
-        if (!isFinite(v) || v<=0 || v>5){ note('Payout necitit'); break; }
-        S.settings.payout = Math.round(v*1000)/1000;
-        dbSet('settings',S.settings);
-        note('Payout de la broker: '+pct(S.settings.payout,1));
-        render(); break;
-      }
-      case 'capital': {
-        const v=Number(d.valoare);
-        if (!isFinite(v) || v<=0){ note('Balanță necitită'); break; }
-        if ((cur().trades||[]).length){ note('Sesiune în curs — capitalul nu se schimbă acum'); break; }
-        S.settings.cap = round2(v);
-        S.current = { startBalance:S.settings.cap, trades:[], n:sessionsToday()+1 };
-        dbSet('settings',S.settings); dbSet('current',S.current);
-        note('Capital de la broker: '+money(S.settings.cap));
-        render(); break;
-      }
-    }
-  }catch(e){}
-  bridgeSend();
-});
-
-function addTrade(result, mizaReala){
+function addTrade(result){
   const r=calc(); if (r.status!=='open') return;
   const row=r.rows[r.rows.length-1]; if (!row) return;
-  const inp=$('#iStake');
-  let stake = (mizaReala!=null && isFinite(mizaReala) && mizaReala>0)
-    ? Number(mizaReala) : parseFloat(inp?inp.value:NaN);
+  const inp=$('#iStake'); let stake=parseFloat(inp?inp.value:NaN);
   if (!isFinite(stake)||stake<=0) stake=row.suggested;
   stake=Math.min(stake, row.before);
   const c=cur();
@@ -2671,7 +2609,6 @@ window.addEventListener('unhandledrejection', e=>showErr('async', String(e.reaso
 
 function render(){
   try{ render_(); }catch(e){ showErr('render', e&&e.message||String(e)); throw e; }
-  finally{ bridgeSend(); }              // panoul din pagina brokerului rămâne la zi
 }
 function render_(){
   const r=calc();
@@ -2913,9 +2850,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 45 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 45 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
