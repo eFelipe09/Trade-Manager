@@ -203,16 +203,15 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .fit tr:active td{background:var(--press)}
 .fit tr.now td{background:var(--acc-bg)}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
-.cmp-hd{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
-  font-weight:700;margin:2px 0 8px}
-.cmp{border-top:1px solid var(--hair);padding:9px 0}
-.cmp:first-of-type{border-top:0;padding-top:0}
-.cmp-k{font-size:13px;color:var(--txt);margin-bottom:6px;line-height:1.3}
-.cmp-v{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.cmp-v .mono{font-family:var(--mono);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
-.cmp-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:7px;
-  font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:700}
-.cmp-sub{font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:1px}
+
+.dg-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.dg-top .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:3px}
+.dg-big{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.dg-bar{height:12px;background:var(--panel2);border-radius:20px;overflow:hidden}
+.dg-bar>i{display:block;height:100%;border-radius:20px;background:var(--accent);transition:width .35s ease}
+.dg-bar>i.gata{background:var(--win-v)}
+.dg-bar>i.minus{background:var(--loss-v)}
+.dg-sub{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:11.5px;color:var(--dim)}
 .ck-row{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;align-items:baseline}
 .ck-row>span:first-child{color:var(--dim);flex:0 0 auto}
 .ck-more{margin-top:5px;font-size:11.5px;color:var(--faint)}
@@ -351,7 +350,6 @@ svg{display:block;width:100%;height:auto}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .sync{font-size:10.5px;color:var(--faint);text-align:center;padding:4px 0 0}
 
-
 /* ============================================================
    FORMA ECRANULUI DE SESIUNE
    Blocul mizei, compact, cum era în prima versiune.
@@ -460,7 +458,6 @@ svg{display:block;width:100%;height:auto}
     <button data-t="z" data-act="tab">Zi</button>
     <button data-t="j" data-act="tab">Jurnal</button>
     <button data-t="a" data-act="tab">Analiză</button>
-    <button data-t="m" data-act="tab">Simulare</button>
     <button data-t="c" data-act="tab">Setări</button>
 </nav>
 </div></header>
@@ -479,7 +476,14 @@ svg{display:block;width:100%;height:auto}
       <div class="kv"><div class="k">Câștig cont</div><div class="v mono up" id="tGain">—</div></div>
       <div class="kv"><div class="k">Stop loss</div><div class="v mono down" id="tStop">—</div></div>
       <div class="kv"><div class="k">Pierderi max.</div><div class="v mono" id="tMaxL">—</div></div>
+      <div class="kv"><div class="k">P&amp;L azi</div><div class="v mono" id="tPlAzi">—</div></div>
+      <div class="kv"><div class="k">Randament azi</div><div class="v mono" id="tRand">—</div></div>
     </div>
+  </div>
+
+  <div class="card" id="dayGoalCard">
+    <h2>Obiectivul de azi</h2>
+    <div id="dayGoalBox"></div>
   </div>
 
   <div class="card">
@@ -491,18 +495,6 @@ svg{display:block;width:100%;height:auto}
     </div>
   </div>
 
-  <div class="card">
-    <h2>Obiectiv zilnic</h2>
-    <div class="row2" style="margin-bottom:11px">
-      <div class="fld" style="margin:0"><label>Țintă profit</label><input id="dgVal" type="number" step="0.1"></div>
-      <div class="fld" style="margin:0"><label>Format</label><select id="dgFmt"><option value="pct">%</option><option value="abs">sumă</option></select></div>
-    </div>
-    <div class="grid g3">
-      <div class="kv"><div class="k">Sesiuni nec.</div><div class="v mono sm" id="dgSess">—</div></div>
-      <div class="kv"><div class="k">Câștig cont</div><div class="v mono sm" id="dgGain">—</div></div>
-      <div class="kv"><div class="k">Capital final</div><div class="v mono sm" id="dgCap">—</div></div>
-    </div>
-  </div>
 </section>
 <!-- ================= ZI ================= -->
 <section id="tab-z">
@@ -650,53 +642,11 @@ svg{display:block;width:100%;height:auto}
 </section>
 
 <!-- ================= SETĂRI ================= -->
-<section id="tab-m">
-  <div class="card">
-    <h2>Încearcă alți parametri</h2>
-    <div class="note" style="margin:0 0 11px">Schimbă cifrele de mai jos și vezi cum s-ar mișca riscul și câștigul, la rata ta de câștig reală. Nimic de aici nu-ți atinge setările.</div>
-    <div class="grid">
-      <div class="fld"><label>Tranzacții (N)</label>
-        <div class="step"><button data-act="simN" data-d="-1">−</button><span id="simN">—</span><button data-act="simN" data-d="1">+</button></div>
-      </div>
-      <div class="fld"><label>Câștiguri necesare (K)</label>
-        <div class="step"><button data-act="simK" data-d="-1">−</button><span id="simK">—</span><button data-act="simK" data-d="1">+</button></div>
-      </div>
-      <div class="fld"><label>Payout</label>
-        <div class="step"><button data-act="simPay" data-d="-1">−</button><span id="simPay">—</span><button data-act="simPay" data-d="1">+</button></div>
-      </div>
-      <div class="fld"><label>Rata de câștig</label>
-        <div class="step"><button data-act="simRate" data-d="-1">−</button><span id="simRate">—</span><button data-act="simRate" data-d="1">+</button></div>
-      </div>
-    </div>
-    <button class="btn btn-g" data-act="simReset" id="simReset" style="width:100%;margin-bottom:11px">Înapoi la parametrii mei</button>
-    <div id="simOut"></div>
-    <div class="note" id="simExpl"></div>
-    <div class="note" id="simNote"></div>
-  </div>
-
-  <div class="card">
-    <h2>Se adună pierderile?</h2>
-    <div class="note" style="margin:0 0 9px">Toată matematica progresiei presupune că o pierdere n-o face pe următoarea mai probabilă. Aici se verifică dacă presupunerea ține la tine.</div>
-    <div id="grupOut"></div>
-    <div class="note" id="grupNote" style="margin-top:9px"></div>
-  </div>
-
-  <div class="card">
-    <h2>Antrenament</h2>
-    <div class="note" style="margin:0 0 11px">Joacă sesiuni pe bani de hârtie, ca să vezi cum se simte progresia fără să riști nimic.</div>
-    <div id="antrCap"></div>
-    <div id="antrCorp"></div>
-    <div class="grid g3" id="antrBtns"></div>
-    <div id="antrSet"></div>
-    <div class="note">Bani de hârtie. Nu atinge jurnalul, capitalul sau sesiunea ta adevărată. Pornește de la balanța ta de acum, dar poți pune orice sumă.</div>
-  </div>
-</section>
-
 <section id="tab-c">
   <div class="card">
     <h2>Parametri</h2>
     <div class="row2">
-      <div class="fld"><label>Capital</label><input id="pCap" type="number" step="0.01"></div>
+      <div class="fld"><label>Capital</label><input id="pCap" inputmode="decimal" autocomplete="off"></div>
       <div class="fld"><label>Monedă</label><select id="pCur">
         <option value="EUR">EUR €</option><option value="USD">USD $</option><option value="RON">RON lei</option>
         <option value="GBP">GBP £</option><option value="CHF">CHF</option></select></div>
@@ -710,16 +660,30 @@ svg{display:block;width:100%;height:auto}
       </div>
     </div>
     <div class="row2">
-      <div class="fld"><label>Payout %</label><input id="pPay" type="number" step="0.5"></div>
-      <div class="fld"><label>Stop loss %</label><input id="pSl" type="number" step="1"></div>
+      <div class="fld"><label>Payout %</label><input id="pPay" inputmode="decimal" autocomplete="off"></div>
+      <div class="fld"><label>Stop loss %</label><input id="pSl" inputmode="decimal" autocomplete="off"></div>
     </div>
     <div class="note" id="cNote"></div>
     <div id="capNote"></div>
   </div>
 
   <div class="card">
+    <h2>Obiectiv zilnic</h2>
+    <div class="row2" style="margin-bottom:11px">
+      <div class="fld" style="margin:0"><label>Țintă profit</label><input id="dgVal" inputmode="decimal" autocomplete="off"></div>
+      <div class="fld" style="margin:0"><label>Format</label><select id="dgFmt"><option value="pct">%</option><option value="abs">sumă</option></select></div>
+    </div>
+    <div class="grid g3">
+      <div class="kv"><div class="k">Sesiuni nec.</div><div class="v mono sm" id="dgSess">—</div></div>
+      <div class="kv"><div class="k">Câștig cont</div><div class="v mono sm" id="dgGain">—</div></div>
+      <div class="kv"><div class="k">Capital final</div><div class="v mono sm" id="dgCap">—</div></div>
+    </div>
+    <div class="note" id="dgNote"></div>
+  </div>
+
+  <div class="card">
     <h2>Previzualizare plan</h2>
-    <div class="fld"><label>Miză minimă la broker</label><input id="pMin" type="number" step="0.01" min="0.01"></div>
+    <div class="fld"><label>Miză minimă la broker</label><input id="pMin" inputmode="decimal" autocomplete="off"></div>
     <div id="planBox"></div>
   </div>
 
@@ -1406,6 +1370,9 @@ function renderTarget(r){
     `<span class="eur">+${money(round2(r.goal - c.startBalance))}</span>`;
   $('#tStop').textContent = st.slPct>0 ? money(r.stopAt) : 'inactiv';
   $('#tMaxL').textContent = r.maxLosses;
+  const z=ziuaAzi();
+  $('#tPlAzi').innerHTML = `<span class="${cls(z.pl)}">${sgn(z.pl)}</span>`;
+  $('#tRand').innerHTML  = `<span class="${cls(z.pct)}">${z.pct>=0?'+':''}${pct(z.pct)}</span>`;
 }
 
 function renderTrades(r){
@@ -1429,15 +1396,106 @@ function renderTrades(r){
   $('#trTbl').innerHTML = h+'</tbody>';
 }
 
+/* ---------- Obiectivul de azi ----------
+   Câți bani ai făcut azi față de cât ți-ai propus. Socoteala include și
+   sesiunea deschisă, ca bara să se miște în timp real; ținta e raportată la
+   balanța cu care ai început ziua, nu la cea de acum. */
+function ziuaAzi(){
+  const k=todayKey();
+  const d=days().find(x=>x.key===k);
+  const c=cur(), r=calc();
+  const start = d ? d.start : c.startBalance;
+  const inchis = d ? (d.end-d.start) : 0;
+  const deschis = r.pl || 0;
+  const pl = round2(inchis+deschis);
+  return { k, start, pl, pct: start>0 ? pl/start : 0,
+           sesiuni: d ? d.nSessions : 0, deschis:round2(deschis) };
+}
+function tintaAzi(start){
+  const st=S.settings;
+  if (!isFinite(st.dgVal) || st.dgVal<=0) return null;
+  return st.dgFmt==='pct' ? round2(start*st.dgVal/100) : round2(st.dgVal);
+}
+
+function anuntaTinta(z, tinta){
+  if (LS.get('dgDone') === z.k) return;              // o dată pe zi, pe aparatul ăsta
+  LS.set('dgDone', z.k);
+  const text = `Ai făcut ${sgn(z.pl)} azi, din ${money(tinta)} cât ți-ai propus.`;
+  note('Ținta zilei atinsă · '+sgn(z.pl));
+  try{
+    if (typeof Notification!=='undefined' && Notification.permission==='granted'){
+      const opt={ body:text, icon:'icon-192.png', badge:'icon-192.png', tag:'tm-tinta-'+z.k };
+      if (navigator.serviceWorker && navigator.serviceWorker.ready)
+        navigator.serviceWorker.ready.then(reg=>reg.showNotification('Ținta de azi, atinsă', opt)).catch(()=>{
+          try{ new Notification('Ținta de azi, atinsă', opt); }catch(e){}
+        });
+      else new Notification('Ținta de azi, atinsă', opt);
+    }
+  }catch(e){}
+}
+function cereNotificari(){
+  if (typeof Notification==='undefined'){ note('Dispozitivul ăsta nu are notificări.'); return; }
+  Notification.requestPermission().then(p=>{
+    note(p==='granted' ? 'Gata, te anunț când atingi ținta.' : 'Fără notificări — rămâne mesajul din aplicație.');
+    renderDayGoal();
+  }).catch(()=>{});
+}
+
+function renderDayGoal(){
+  const box=$('#dayGoalBox'); if (!box) return;
+  const st=S.settings, z=ziuaAzi(), tinta=tintaAzi(z.start);
+  if (!tinta){
+    box.innerHTML=`<div class="empty">N-ai pus nicio țintă. O setezi în <b>Setări → Obiectiv zilnic</b>.</div>`;
+    return;
+  }
+  const frac = tinta>0 ? z.pl/tinta : 0;
+  const proc = Math.max(0, Math.min(100, frac*100));
+  const gata = z.pl >= tinta - 0.005;
+  if (gata) anuntaTinta(z, tinta);
+
+  const etichetaTinta = st.dgFmt==='pct'
+    ? `${money(tinta)} (${pct(st.dgVal/100,2)} din ${money(z.start)})`
+    : money(tinta);
+  const ramas = round2(tinta - z.pl);
+
+  box.innerHTML = `
+    <div class="dg-top">
+      <div><div class="k">Azi ai făcut</div><div class="dg-big mono ${cls(z.pl)}">${sgn(z.pl)}</div></div>
+      <div style="text-align:right"><div class="k">Ținta de azi</div><div class="dg-big mono">${money(tinta)}</div></div>
+    </div>
+    <div class="dg-bar"><i style="width:${proc.toFixed(1)}%" class="${gata?'gata':(z.pl<0?'minus':'')}"></i></div>
+    <div class="dg-sub">
+      <span>${frac<0?0:Math.round(proc)}% din țintă</span>
+      <span>${gata ? 'gata' : (z.pl<0 ? 'ești pe minus' : 'îți mai trebuie '+money(ramas))}</span>
+    </div>
+    ${gata
+      ? `<div class="banner b-ok" style="margin:10px 0 0"><span class="ic">&#10003;</span>
+         <span><b>Ținta de azi e atinsă</b>${sgn(z.pl)} din ${money(tinta)}. Se reîncepe de la zero la miezul nopții.</span></div>`
+      : ''}
+    ${(typeof Notification!=='undefined' && Notification.permission==='default')
+      ? `<button class="btn btn-g" data-act="dgNotif" style="width:100%;margin-top:10px">Anunță-mă când ating ținta</button>`
+      : ''}
+    <div class="note" style="margin-top:8px">Ținta: ${etichetaTinta}. Socoteala include și sesiunea în curs${z.deschis?` (${sgn(z.deschis)} deocamdată)`:''}. La miezul nopții se reîncepe de la zero.</div>`;
+}
+
 function renderDaily(r){
   const st=S.settings, g=r.sessionGain;
-  $('#dgVal').value = st.dgVal; $('#dgFmt').value = st.dgFmt;
-  const base = cur().startBalance;
+  const dv=$('#dgVal'), df=$('#dgFmt');
+  if (dv) dv.value = st.dgVal;
+  if (df) df.value = st.dgFmt;
+  /* Obiectivul e al zilei, deci se socotește din balanța de la miezul nopții,
+     nu din cea cu care a pornit sesiunea curentă. Altfel, după câteva sesiuni
+     reușite, ținta zilei s-ar muta în sus odată cu contul. */
+  const base = ziuaAzi().start;
   const targetGain = st.dgFmt==='pct' ? st.dgVal/100 : (base>0 ? st.dgVal/base : 0);
   const sess = g>0 ? Math.ceil(targetGain/g) : NaN;
-  $('#dgSess').textContent = isFinite(sess)?sess:'—';
-  $('#dgGain').textContent = isFinite(sess)?pct(Math.pow(1+g,sess)-1):'—';
-  $('#dgCap').textContent = isFinite(sess)?money(base*Math.pow(1+g,sess)):'—';
+  const set=(id,v)=>{ const e=$(id); if (e) e.textContent=v; };
+  set('#dgSess', isFinite(sess)?sess:'—');
+  set('#dgGain', isFinite(sess)?pct(Math.pow(1+g,sess)-1):'—');
+  set('#dgCap',  isFinite(sess)?money(base*Math.pow(1+g,sess)):'—');
+  const n=$('#dgNote');
+  if (n) n.innerHTML = `Socotit din balanța cu care ai început ziua, <b>${money(base)}</b> — `+
+    `cea de la miezul nopții, nu cea de acum. Progresul îl vezi pe ecranul de <b>Sesiune</b>.`;
 }
 
 /* ============================================================
@@ -1881,8 +1939,11 @@ function btnFix(cheie, etichetaCalm, etichetaArmat, latime){
    Trei lucruri care previn, nu repară. Toate stau în setări, deci
    se sincronizează odată cu ele.
    ============================================================ */
+/* Capitalul NU e aici: aplicația și-l rescrie singură la fiecare sesiune
+   închisă, la fiecare reparație și la fiecare aliniere cu brokerul, iar
+   jurnalul s-ar umple de mișcări pe care nu le-ai făcut tu. Îl notăm doar
+   când îl schimbi chiar tu, din câmpul de capital — vezi noteazaUna(). */
 const URMARITE = {
-  cap:     { nume:'Capital',            fmt:v=>money(v) },
   payout:  { nume:'Payout',             fmt:v=>pct(v,1) },
   N:       { nume:'Tranzacții',         fmt:v=>String(v) },
   K:       { nume:'Câștiguri necesare', fmt:v=>String(v) },
@@ -1891,6 +1952,7 @@ const URMARITE = {
   minStake:{ nume:'Miză minimă',        fmt:v=>money(v) },
   cur:     { nume:'Monedă',             fmt:v=>String(v) }
 };
+const NUME_CAP = { nume:'Capital', fmt:v=>money(v) };
 const MAX_IST = 80;
 const FEREASTRA_UNIRE = 90000;     // apăsări pe +/− la câteva secunde una de alta = o schimbare
 
@@ -1922,18 +1984,45 @@ function noteazaSchimbarile(inainte){
   dbSet('settings', S.settings);
   if ($('#istBox')) renderIstoric();
 }
+let istArm=false, istTimer=null;
+function golesteIstoric(){
+  S.settings.ist = [];
+  dbSet('settings', S.settings);
+  renderIstoric();
+  note('Istoricul schimbărilor a fost golit.');
+}
+/* o singură schimbare, declarată explicit: pentru lucrurile pe care aplicația
+   le modifică și singură, dar pe care vrem să le notăm doar când le faci tu */
+function noteazaUna(k, de, la){
+  if (de===la || de==null || la==null) return;
+  if (typeof de==='number' && typeof la==='number' && Math.abs(de-la)<0.005) return;
+  const ist = Array.isArray(S.settings.ist) ? S.settings.ist : [];
+  const acum = Date.now(), ultim = ist.length ? ist[ist.length-1] : null;
+  if (ultim && ultim.k===k && acum-ultim.t < FEREASTRA_UNIRE){
+    ultim.la = la; ultim.t = acum;
+    if (typeof ultim.de==='number' && typeof ultim.la==='number' && Math.abs(ultim.de-ultim.la)<0.005) ist.pop();
+  } else ist.push({ t:acum, k, de, la });
+  while (ist.length > MAX_IST) ist.shift();
+  S.settings.ist = ist;
+  dbSet('settings', S.settings);
+  if ($('#istBox')) renderIstoric();
+}
+
 function renderIstoric(){
   const box=$('#istBox'); if (!box) return;
   const ist = Array.isArray(S.settings.ist) ? [...S.settings.ist].reverse() : [];
   if (!ist.length){
     box.innerHTML=`<div class="empty">Nicio schimbare înregistrată. De aici înainte, orice modificare a parametrilor apare aici, cu data.</div>`;
-    return;
+    istArm=false; return;
   }
   box.innerHTML = ist.slice(0,24).map(x=>{
-    const u=URMARITE[x.k]; if (!u || x.de==null || x.la==null || !isFinite(Number(x.t))) return '';
+    const u = x.k==='cap' ? NUME_CAP : URMARITE[x.k]; if (!u || x.de==null || x.la==null || !isFinite(Number(x.t))) return '';
     return `<div class="ck-row"><span>${dayShort(dayKey(x.t))} ${hhmm(x.t)}</span>
       <span class="mono">${u.nume}: ${u.fmt(x.de)} → <b>${u.fmt(x.la)}</b></span></div>`;
-  }).join('') + (ist.length>24 ? `<div class="ck-more">…și încă ${ist.length-24}</div>` : '');
+  }).join('') + (ist.length>24 ? `<div class="ck-more">…și încă ${ist.length-24}</div>` : '')
+   + `<button class="btn ${istArm?'btn-l':'btn-g'}" data-act="istGol" style="width:100%;margin-top:10px">`
+   + (istArm ? `Sigur? Apasă din nou — ${plural(ist.length,'intrare ștearsă','intrări șterse')}` : 'Golește istoricul')
+   + `</button>`;
 }
 
 /* ---------- reconcilierea cu brokerul ---------- */
@@ -2349,294 +2438,6 @@ function clockCharts(){
   $('#weekNote').innerHTML = clockNote(c.sapt, c.rate, be, b=>'Săptămâna '+(b.k+1)+' a lunii', 'săptămână');
 }
 
-/* ============================================================
-   SIMULARE
-   Trei lucruri care nu ating jurnalul: încercarea altor parametri
-   pe rata ta reală, verificarea dacă pierderile se adună în
-   ciorchine, și un loc unde poți juca fără bani.
-   ============================================================ */
-
-/* șirul cronologic de câștiguri și pierderi, din toate sesiunile cu tranzacții */
-function sirRezultate(){
-  const out=[];
-  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
-  for (const s of ses) for (const t of (s.trades||[])) out.push(t.result==='W'?1:0);
-  for (const t of ((S.current&&S.current.trades)||[])) out.push(t.result==='W'?1:0);
-  return out;
-}
-/* Rata pe tot istoricul. Sesiunile importate păstrează doar numărătoarea de
-   câștiguri și pierderi, fără tranzacții individuale — dar numărătoarea aia e
-   bună, deci intră la socoteală. Șirul de mai sus, cu ordinea exactă, rămâne
-   doar pentru testul de grupare, care are nevoie de succesiune. */
-function rataReala(){
-  let w=0, l=0;
-  for (const s of S.sessions){
-    const tr=s.trades||[];
-    if (tr.length){ for (const t of tr) (t.result==='W' ? w++ : l++); }
-    else { w += Number(s.wins)||0; l += Number(s.losses)||0; }
-  }
-  for (const t of ((S.current&&S.current.trades)||[])) (t.result==='W' ? w++ : l++);
-  return (w+l) ? { rate:w/(w+l), w, l, n:w+l } : null;
-}
-
-/* ---------- 1. Încercarea altor parametri ---------- */
-let simCfg = null;
-function simInit(){
-  const st=S.settings;
-  const rr=rataReala();
-  if (!simCfg) simCfg = { N:st.N, K:st.K, payout:st.payout, p: rr ? rr.rate : breakEven(st.payout)+0.02 };
-}
-function simRezultate(cfg){
-  const st=S.settings;
-  const d = sessionDist(cfg.p, cfg.N, cfg.K, cfg.payout, st.slPct, st.slMode);
-  const rc = ruinCurve(d, [100,500], 4000);
-  return { d, r100:rc[0], r500:rc[1], be:breakEven(cfg.payout), taiat:!!d.truncated };
-}
-function renderSim(){
-  simInit();
-  const st=S.settings, real=rataReala();
-  $('#simN').textContent=simCfg.N;
-  $('#simK').textContent=simCfg.K;
-  $('#simPay').textContent=pct(simCfg.payout,0);
-  $('#simRate').textContent=pct(simCfg.p,2);
-  const rb=$('#simReset'); if (rb) rb.style.display =
-    (simCfg.N===st.N && simCfg.K===st.K && Math.abs(simCfg.payout-st.payout)<1e-9) ? 'none' : '';
-
-  if (simCfg.K>=simCfg.N){ $('#simOut').innerHTML=`<div class="empty">Câștigurile necesare trebuie să fie mai puține decât tranzacțiile.</div>`; return; }
-  const acum = simRezultate({ N:st.N, K:st.K, payout:st.payout, p:simCfg.p });
-  const nou  = simRezultate(simCfg);
-  const bal = round2(calc().balance);
-  const P=(v,z)=>pct(v,z==null?1:z);
-  /* sub fiecare procent punem ce înseamnă în bani, la balanța de acum */
-  /* Etichetele în cuvinte întregi nu încap într-un tabel de trei coloane pe
-     telefon, așa că fiecare rând devine un bloc: numele sus, cele două valori
-     dedesubt, una lângă alta. */
-  const linie=(nume, a, b, fmt, bun, sub)=>{
-    const dif = b-a;
-    const sem = Math.abs(dif)<1e-9 ? '' : (bun(dif) ? 'up' : 'down');
-    const jos = v => sub ? `<div class="cmp-sub">${sub(v)}</div>` : '';
-    return `<div class="cmp">
-      <div class="cmp-k">${nume}</div>
-      <div class="cmp-v">
-        <div><div class="mono">${fmt(a)}</div>${jos(a)}</div>
-        <div><div class="mono ${sem}">${fmt(b)}</div>${jos(b)}</div>
-      </div></div>`;
-  };
-  const euro = v => (v>0?'+':'') + money(round2(v*bal));
-  const unaDin = v => (v>0 && v<1) ? '1 din ' + Number(Math.round(1/(1-v))).toLocaleString('ro-RO') : '—';
-  $('#simOut').innerHTML = `<div class="cmp-hd">La rata ta de câștig, ${pct(simCfg.p,2)}</div>
-    <div class="cmp-cols"><div>parametrii tăi</div><div>cei simulați</div></div>
-    ${linie('Cât trebuie să câștigi ca să nu pierzi', acum.be, nou.be, v=>P(v,2), d=>d<0,
-            v=>'din tranzacții')}
-    ${linie('Câștig mediu pe sesiune', acum.d.ev, nou.d.ev, v=>(v>0?'+':'')+(v*100).toFixed(3)+'%', d=>d>0, euro)}
-    ${linie('Șansa să atingi ținta', acum.d.okProb, nou.d.okProb, v=>P(v), d=>d>0, unaDin)}
-    ${linie('Dacă iese prost, pierzi', acum.d.worst-1, nou.d.worst-1, v=>P(v), d=>d>0, euro)}
-    ${linie('Riscul să rămâi aproape fără bani, în 100 de sesiuni', acum.r100.ruin, nou.r100.ruin, v=>P(v), d=>d<0,
-            v=>'adică sub '+money(round2(bal*0.1)))}
-    ${linie('Același risc, în 500 de sesiuni', acum.r500.ruin, nou.r500.ruin, v=>P(v), d=>d<0, null)}
-    ${linie('Unde ajungi, în cazul din mijloc, după 100', acum.r100.med, nou.r100.med,
-            v=>v<0.01?'0':v.toFixed(2)+'×', d=>d>0, v=>money(round2(v*bal)))}`;
-  const taiat = acum.taiat || nou.taiat;
-  $('#simOut').innerHTML = (taiat ? `<div class="banner b-warn" style="margin:0 0 9px"><span class="ic">&#9888;</span>
-      <span><b>Cifre aproximative</b>La ${nou.taiat?'parametrii simulați':'parametrii tăi'} sunt prea multe traiectorii ca să le parcurg pe toate,
-      așa că am oprit numărătoarea după 400.000. Diferența e mică, dar rândurile de mai jos nu mai sunt exacte.</span></div>` : '')
-    + $('#simOut').innerHTML;
-  $('#simExpl').innerHTML = (()=>{
-    const d=nou.d;
-    if (!(d.okProb>0 && d.okProb<1)) return '';
-    const n=Math.round(1/(1-d.okProb));
-    return `<b>Pe scurt, cu parametrii simulați:</b> din fiecare ${nr(n)}sesiuni, cam `+
-      `${Number(n-1).toLocaleString('ro-RO')} ating ținta și îți aduc câte ${money(round2(d.ev*bal))} în medie; `+
-      `una singură merge prost și poate lua tot contul. Coloana din dreapta e colorată `+
-      `<span class="up">verde</span> când e mai bună decât ce ai acum și `+
-      `<span class="down">roșie</span> când e mai proastă.`;
-  })();
-  $('#simNote').innerHTML = (real
-      ? `Rata de ${pct(real.rate,2)} vine din toate cele ${nr(real.n)}tranzacții din istoricul tău, aceeași pe care o vezi în Analiză. `
-      : `N-ai încă tranzacții înregistrate, așa că rata e doar o presupunere. `)
-    + (taiat
-        ? `Primele patru rânduri ar fi exacte la parametri mai mici; aici sunt aproximate, din motivul de mai sus. `
-        : `Primele patru rânduri sunt exacte, nu estimate: aplicația parcurge fiecare traiectorie posibilă a unei sesiuni. `)
-    + `Riscul de ruină și medianul vin din 4000 de serii simulate, deci se clatină cu câteva zecimi de la o apăsare la alta. `
-    + `Nimic de aici nu-ți schimbă setările.`;
-}
-
-/* ---------- 2. Se adună pierderile în ciorchine? ---------- */
-function testSerii(v){
-  const n=v.length, n1=v.reduce((a,b)=>a+b,0), n2=n-n1;
-  if (n<2 || !n1 || !n2) return null;
-  let R=1; for (let i=1;i<n;i++) if (v[i]!==v[i-1]) R++;
-  const E = 2*n1*n2/n + 1;
-  const V = (2*n1*n2*(2*n1*n2-n)) / (n*n*(n-1));
-  if (V<=0) return null;
-  const z = (R-E)/Math.sqrt(V);
-  return { n, n1, n2, R, E, z, sd:Math.sqrt(V) };
-}
-function serieMax(v, cauta){
-  let m=0, c=0;
-  for (const x of v){ if (x===cauta){ if (++c>m) m=c; } else c=0; }
-  return m;
-}
-/* cât de lungă ar fi cea mai lungă serie de pierderi dacă n-ar exista nicio
-   legătură între tranzacții: o aflăm amestecând la nesfârșit aceeași monedă */
-/* Numărul de amestecări scade pe măsură ce șirul crește: altfel, la câteva mii
-   de tranzacții, tabul ar sta blocat secunde bune. Chiar și 2000 de amestecări
-   dau percentila cu o precizie mult peste cât ne trebuie aici. */
-function cateAmestecari(n){ return Math.max(2000, Math.min(20000, Math.round(3e6/Math.max(n,1)))); }
-function serieAsteptata(n, p, runs){
-  const obs=[];
-  for (let r=0;r<runs;r++){
-    let m=0,c=0;
-    for (let i=0;i<n;i++){ if (Math.random()>=p){ if (++c>m) m=c; } else c=0; }
-    obs.push(m);
-  }
-  obs.sort((a,b)=>a-b);
-  return obs;
-}
-const PRAG_SERII = 60;                        // sub atât, testul nu spune nimic
-
-function renderGrupare(){
-  const v=sirRezultate();
-  const box=$('#grupOut'), nota=$('#grupNote');
-  if (v.length < 12){
-    box.innerHTML=`<div class="empty">Prea puține tranzacții înregistrate (${v.length}).</div>`;
-    nota.textContent=''; return;
-  }
-  const t=testSerii(v);
-  if (!t){ box.innerHTML=`<div class="empty">Toate tranzacțiile au ieșit la fel — n-are ce testa.</div>`; nota.textContent=''; return; }
-  const p=t.n1/t.n;
-  const maxObs=serieMax(v,0);
-  const dist=serieAsteptata(t.n, p, cateAmestecari(t.n));
-  let mai=0; for (const x of dist) if (x>=maxObs) mai++;
-  const pct95=dist[Math.floor(dist.length*0.95)];
-  const probSerie=mai/dist.length;
-
-  box.innerHTML=`<div class="kvs">
-    <div class="kv"><div class="k">Câte șiruri ai avut</div><div class="v mono sm">${t.R}
-      <span class="eur">de câștiguri sau pierderi la rând</span></div></div>
-    <div class="kv"><div class="k">Câte ar fi dat hazardul</div><div class="v mono sm">${t.E.toFixed(0)}
-      <span class="eur">dacă n-ar exista nicio legătură</span></div></div>
-    <div class="kv"><div class="k">Cea mai lungă serie de pierderi</div><div class="v mono sm">${maxObs}
-      <span class="eur">la rând, în tot istoricul</span></div></div>
-    <div class="kv"><div class="k">Cât de lungă ar fi, din noroc</div><div class="v mono sm">până în ${pct95}
-      <span class="eur">în 19 cazuri din 20</span></div></div>
-  </div>`;
-
-  const mic = t.n < PRAG_SERII;
-  const gruparea = t.z <= -2;
-  const alternanta = t.z >= 2;
-  let h='';
-  if (mic)
-    h = `<b>Încă nu se poate spune.</b> Testul are nevoie de cel puțin ${PRAG_SERII} de tranzacții ca să distingă ceva, iar tu ai ${t.n}. Revino peste câteva săptămâni.`;
-  else if (gruparea)
-    h = `<b>Pierderile par să se adune.</b> Ai ${t.R} serii acolo unde hazardul ar fi dat ${t.E.toFixed(1)} — adică seriile tale sunt mai lungi și mai rare decât ar trebui. `+
-        `Asta contează: toată matematica progresiei presupune că o pierdere n-o face pe următoarea mai probabilă. Dacă presupunerea nu ține, <b>riscul de ruină din Analiză e mai mic decât cel adevărat</b>.`;
-  else if (alternanta)
-    h = `<b>Rezultatele alternează mai des decât ar face-o din hazard.</b> Ai ${t.R} serii față de ${t.E.toFixed(1)} așteptate. E neobișnuit, dar nu în defavoarea ta: seriile scurte sunt exact ce preferă o progresie.`;
-  else
-    h = `<b>Nu se adună.</b> Ai ${t.R} serii, iar hazardul ar fi dat ${t.E.toFixed(1)} — diferența stă în limitele întâmplării. `+
-        `Presupunerea pe care se bazează progresia se ține, deci cifrele de risc din Analiză sunt de încredere.`;
-
-  h += ` Cea mai lungă serie de pierderi a ta e de ${maxObs}; dacă tranzacțiile ar fi fost independente, o serie de ${maxObs} sau mai lungă ar fi apărut în ${pct(probSerie,0)} din cazuri.`;
-  h += `<div class="note" style="margin-top:8px">Pe ${nr(t.n)}tranzacții, ${t.n1} câștiguri și ${t.n2} pierderi, în ordinea în care s-au petrecut. Granițele dintre sesiuni nu contează aici — contează doar șirul.</div>`;
-  nota.innerHTML=h;
-}
-
-/* ---------- 3. Antrenament ---------- */
-let antr = null;
-function antrInit(){
-  const st=S.settings;
-  if (!antr){
-    /* pornim de la cât ai tu acum, nu de la o sumă rotundă inventată:
-       așa cifrele de pe ecran seamănă cu cele cu care ești obișnuit */
-    const start = round2(calc().balance) || 1000;
-    antr = { bal:start, N:st.N, K:st.K, payout:st.payout, trades:[], sesiuni:0, pornit:start };
-  }
-}
-function antrSetBani(){
-  const el=$('#antrIn'); if (!el) return;
-  const v=parseBani(el.value);
-  if (!isFinite(v) || v<=0 || v>1e9){ note('Scrie o sumă, de exemplu 1.000'); return; }
-  antr = { bal:round2(v), N:S.settings.N, K:S.settings.K, payout:S.settings.payout,
-           trades:[], sesiuni:0, pornit:round2(v) };
-  el.value=''; renderAntr(); note('Antrenament pornit de la '+money(round2(v)));
-}
-function antrCalc(){
-  antrInit();
-  return replay({ startBalance:antr.bal, N:antr.N, K:antr.K, payout:antr.payout,
-                  slPct:0, slMode:'alert', trades:antr.trades });
-}
-function antrTrade(res){
-  const r=antrCalc(); if (r.status!=='open') return;
-  const row=r.rows[r.rows.length-1]; if (!row) return;
-  antr.trades.push({ result:res, stake:row.suggested,
-                     ret: res==='W' ? round2(row.suggested*antr.payout) : -row.suggested });
-  renderAntr();
-}
-function antrNoua(){
-  const r=antrCalc();
-  if (r.status!=='open'){ antr.bal=round2(r.balance); antr.sesiuni++; }
-  antr.trades=[]; renderAntr();
-}
-function antrSterge(){ antr.trades.pop(); renderAntr(); }
-function antrReset(){ antr=null; antrInit(); renderAntr(); }
-function antrAuto(){
-  antrInit();
-  const rr=rataReala();
-  const p = simCfg ? simCfg.p : (rr ? rr.rate : 0.55);
-  let garda=0;
-  while (garda++ < 400){
-    const r=antrCalc();
-    if (r.status!=='open'){ antr.bal=round2(r.balance); antr.sesiuni++; antr.trades=[]; break; }
-    antrTradeTacut(Math.random()<p ? 'W' : 'L');
-  }
-  renderAntr();
-}
-function antrTradeTacut(res){
-  const r=antrCalc(); if (r.status!=='open') return;
-  const row=r.rows[r.rows.length-1]; if (!row) return;
-  antr.trades.push({ result:res, stake:row.suggested,
-                     ret: res==='W' ? round2(row.suggested*antr.payout) : -row.suggested });
-}
-function renderAntr(){
-  antrInit();
-  const r=antrCalc();
-  const row=r.rows[r.rows.length-1];
-  const deschis = r.status==='open' && row && !row.result;
-  const dif = round2(r.balance - antr.pornit);
-  $('#antrCap').innerHTML = `<div class="kvs">
-    <div class="kv"><div class="k">Bani de hârtie</div><div class="v mono sm">${money(round2(r.balance))}</div></div>
-    <div class="kv"><div class="k">Față de start</div><div class="v mono sm ${cls(dif)}">${sgn(dif)}</div></div>
-    <div class="kv"><div class="k">Sesiuni jucate</div><div class="v mono sm">${antr.sesiuni}</div></div>
-    <div class="kv"><div class="k">Parametri</div><div class="v mono sm">${antr.N}/${antr.K}</div></div>
-  </div>`;
-  if (deschis){
-    $('#antrCorp').innerHTML=`
-      <div class="hint" style="margin:10px 0 8px">Tranzacția ${row.no} din ${antr.N} · mai trebuie
-        ${plural(Math.max(0,antr.K-r.wins),'câștig','câștiguri')} · miza <b class="mono">${money(row.suggested)}</b>${row.allIn?' · tot contul':''}</div>
-      <div class="btns">
-        <button class="btn btn-w" data-act="antrW">CÂȘTIG</button>
-        <button class="btn btn-l" data-act="antrL">PIERDERE</button>
-      </div>`;
-  } else {
-    const cum = r.status==='target' ? 'Țintă atinsă' : r.status==='liquidated' ? 'Sesiune pierdută' : 'Sesiune încheiată';
-    $('#antrCorp').innerHTML=`
-      <div class="banner ${r.status==='target'?'b-ok':'b-bad'}" style="margin:10px 0 8px">
-        <span class="ic">${r.status==='target'?'&#10003;':'&#9888;'}</span>
-        <span><b>${cum}</b>${sgn(round2(r.pl))} în sesiunea asta.</span></div>
-      <button class="btn btn-a" data-act="antrNoua" style="width:100%">Sesiune nouă</button>`;
-  }
-  $('#antrSet').innerHTML = `<div class="fld" style="margin:10px 0 0"><label>Pornește de la ce sumă vrei</label>
-      <div class="row2"><input id="antrIn" inputmode="decimal" placeholder="de ex. 1.000 sau ${money(antr.pornit).replace(/^[^\d]*/,'')}">
-        <button class="btn btn-g" data-act="antrBani">Repornește</button></div></div>`;
-  $('#antrBtns').innerHTML=`
-    <button class="btn btn-g" data-act="antrAuto">Joacă singur</button>
-    <button class="btn btn-g" data-act="antrSterge"${antr.trades.length?'':' disabled'}>Șterge ultima</button>
-    <button class="btn btn-g" data-act="antrReset">De la capăt</button>`;
-}
-
-function renderSimulare(){ renderSim(); renderGrupare(); renderAntr(); }
-
 function renderAnalysis(){
   const st=S.settings, be=breakEven(st.payout);
   const avail = monthsWithData();
@@ -2923,6 +2724,7 @@ function renderPlan(){
    RENDER — settings
    ============================================================ */
 function renderSettings(){
+  try{ renderDaily(calc()); }catch(e){}
   const st=S.settings;
   $('#pCap').value=st.cap; $('#pCur').value=st.cur;
   $('#sN').textContent=st.N; $('#sK').textContent=st.K;
@@ -3022,7 +2824,6 @@ function switchTab(t){
   if (t==='a') renderAnalysis();
   if (t==='j') renderJournal();
   if (t==='z') renderDays();
-  if (t==='m') renderSimulare();
   if (t==='c'){ renderFit(); renderRecon(); renderIstoric();
     semnalProbleme=null; pictSemnal(); }
   try{ window.scrollTo(0,0); }catch(e){}
@@ -3093,13 +2894,6 @@ function doWipe(){
 }
 const ACTS = {
   tab:(el)=>switchTab(el.dataset.t),
-  simN:(el)=>{ simInit(); simCfg.N=Math.max(2,Math.min(40,simCfg.N+ +el.dataset.d)); if(simCfg.K>=simCfg.N) simCfg.K=simCfg.N-1; renderSim(); },
-  simK:(el)=>{ simInit(); simCfg.K=Math.max(1,Math.min(simCfg.N-1,simCfg.K+ +el.dataset.d)); renderSim(); },
-  simPay:(el)=>{ simInit(); simCfg.payout=Math.max(.5,Math.min(2,round2(simCfg.payout+ +el.dataset.d*0.01))); renderSim(); },
-  simRate:(el)=>{ simInit(); simCfg.p=Math.max(.2,Math.min(.95,Math.round((simCfg.p+ +el.dataset.d*0.005)*1000)/1000)); renderSim(); },
-  simReset:()=>{ const st=S.settings; simInit(); simCfg.N=st.N; simCfg.K=st.K; simCfg.payout=st.payout; renderSim(); },
-  antrW:()=>antrTrade('W'), antrL:()=>antrTrade('L'), antrBani: antrSetBani,
-  antrNoua, antrSterge, antrReset, antrAuto,
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
   applyCap:()=>{
@@ -3172,6 +2966,12 @@ const ACTS = {
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
   recon: salveazaRecon,
+  dgNotif: cereNotificari,
+  istGol: ()=>{
+    if (!istArm){ istArm=true; renderIstoric();
+      clearTimeout(istTimer); istTimer=setTimeout(()=>{ istArm=false; renderIstoric(); },4000); return; }
+    clearTimeout(istTimer); istArm=false; golesteIstoric();
+  },
   alin: ()=>{
     if (!alinArm){ alinArm=true; renderRecon();
       clearTimeout(alinTimer); alinTimer=setTimeout(()=>{ alinArm=false; renderRecon(); },4000); return; }
@@ -3248,6 +3048,7 @@ document.addEventListener('click', function(e){
 
 const SETTINGS_MAP = {
   pCap:['cap', v=>{ const n=parseBani(v); if(!isFinite(n)||n<=0) return null;
+        noteazaUna('cap', S.settings.cap, n);          // asta ai scris-o tu, deci se notează
         // an untouched session can simply adopt the new figure; one with trades cannot
         if (S.current && !(S.current.trades||[]).length){ S.current.startBalance=n; dbSet('current',S.current); }
         else note('Se aplic\u0103 de la sesiunea urm\u0103toare');
@@ -3255,10 +3056,10 @@ const SETTINGS_MAP = {
   pCur:['cur', v=>v],
   pMin:['minStake', v=>{ const n=parseBani(v); return (n>0&&n<=10000)?n:null; }],
   pFitOnly:['fitMode', v=>{ const n=parseInt(v,10); return (n>=0&&n<=2)?n:null; }],
-  pPay:['payout', v=>{ const n=parseFloat(v); return (n>0&&n<=500)?n/100:null; }],
-  pSl:['slPct', v=>{ const n=parseFloat(v); return (n>=0&&n<100)?n/100:null; }],
+  pPay:['payout', v=>{ const n=parseBani(v); return (n>0&&n<=500)?n/100:null; }],
+  pSl:['slPct', v=>{ const n=parseBani(v); return (n>=0&&n<100)?n/100:null; }],
   pSlMode:['slMode', v=>v],
-  dgVal:['dgVal', v=>{ const n=parseFloat(v); return isFinite(n)?n:null; }],
+  dgVal:['dgVal', v=>{ const n=parseBani(v); return isFinite(n)?n:null; }],
   dgFmt:['dgFmt', v=>v],
 };
 document.addEventListener('change', function(e){
@@ -3305,7 +3106,7 @@ function render(){
 function render_(){
   const r=calc();
   renderHeader(r); renderBanner(r); renderNext(r);
-  renderTarget(r); renderTrades(r); renderDaily(r);
+  renderTarget(r); renderTrades(r); renderDayGoal();
   renderJournal(); renderDays(); renderSettings(); renderSync();
   const act=document.querySelector('nav button.on');
   if (act && act.dataset.t==='a') renderAnalysis();
@@ -3540,11 +3341,10 @@ function renderSync(){
   if (em && lastEmail) em.value = lastEmail;
 }
 
-
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 57 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 60 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 57 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 60 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
