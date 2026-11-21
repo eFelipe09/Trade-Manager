@@ -138,6 +138,8 @@ section.on{display:block}
 .kv .k{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .kv .v{font-size:17px;font-weight:700;margin-top:1px}
 .kv .v.sm{font-size:14.5px}
+.kv .v .eur{display:block;font-weight:600;font-size:12.5px;color:var(--dim);margin-top:1px}
+td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-top:1px}
 
 /* ---------- banner ---------- */
 .banner{border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13.5px;font-weight:500;display:flex;gap:10px;align-items:flex-start}
@@ -184,6 +186,12 @@ section.on{display:block}
 .step span{flex:1;text-align:center;font-weight:700;font-size:17px;font-family:var(--mono);color:var(--txt)}
 .fit{max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
 .fit table{width:100%;border-collapse:collapse;font-size:13px}
+@media (max-width:460px){
+  .fit{margin-left:-12px;margin-right:-12px}
+  .fit table{font-size:12.5px}
+  .fit th{padding-left:5px;padding-right:5px}
+  .fit td{padding-left:5px;padding-right:5px}
+}
 .fit th{position:sticky;top:0;background:var(--panel);text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:5px 7px;border-bottom:1px solid var(--line)}
 .fit th:first-child,.fit td:first-child{text-align:left}
 .fit td{text-align:right;padding:7px;border-bottom:1px solid var(--hair);cursor:pointer}
@@ -1357,7 +1365,8 @@ function renderNext(r){
 function renderTarget(r){
   const st=S.settings, c=cur();
   $('#tGoal').textContent = money(r.goal);
-  $('#tGain').textContent = '+'+pct(r.sessionGain);
+  $('#tGain').innerHTML = '+'+pct(r.sessionGain) +
+    `<span class="eur">+${money(round2(r.goal - c.startBalance))}</span>`;
   $('#tStop').textContent = st.slPct>0 ? money(r.stopAt) : 'inactiv';
   $('#tMaxL').textContent = r.maxLosses;
 }
@@ -1917,7 +1926,7 @@ function renderFit(){
     $('#fitNote').textContent='';
     return;
   }
-  let h='<table><thead><tr><th>Tranz.</th><th>Câștiguri</th><th>Prima miză</th>'+
+  let h='<table><thead><tr><th>Tranz.</th><th>Câșt.</th><th>Prima miză</th>'+
         (mode===2?'':'<th>Nec.</th>')+'<th>Țintă</th></tr></thead><tbody>';
   for (const r of show){
     const now = (r.N===st.N && r.K===st.K) ? ' class="now"' : '';
@@ -1926,7 +1935,8 @@ function renderFit(){
          `<td class="mono">${r.K}<span class="dot dot-${r.grade}"></span></td>`+
          `<td class="mono">${money(round2(r.b.firstFrac*bal))}</td>`+
          (mode===2?'':`<td class="mono ${r.grade==='ok'?'':(r.grade==='bad'?'down':'')}">${bigMoney(r.need)}</td>`)+
-         `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}</td></tr>`;
+         `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}`+
+           `<span class="eur">${r.b.gain>=1e-6?'+':''}${money(round2(r.b.gain*bal))}</span></td></tr>`;
   }
   $('#fitBox').innerHTML = h+'</tbody></table>';
   const nowRow = $('#fitBox').querySelector('tr.now');
@@ -1948,7 +1958,7 @@ function renderPlan(){
   const w = n.at ? n.at.j : 0;
   const grid = `<div class="grid" style="margin-top:11px">
       <div class="kv"><div class="k">Prima miză</div><div class="v mono">${money(first)}</div></div>
-      <div class="kv"><div class="k">Țintă / sesiune</div><div class="v mono up">${n.gain>=1e-6?'+':''}${pct(n.gain)}</div></div>
+      <div class="kv"><div class="k">Țintă / sesiune</div><div class="v mono up">${n.gain>=1e-6?'+':''}${pct(n.gain)}<span class="eur">${n.gain>=1e-6?'+':''}${money(round2(n.gain*bal))}</span></div></div>
       <div class="kv"><div class="k">Capital ca să începi</div><div class="v mono sm">${bigMoney(n.start)}</div></div>
       <div class="kv"><div class="k">Capital pentru tot planul</div><div class="v mono sm">${bigMoney(n.full)}</div></div>
     </div>`;
@@ -1986,7 +1996,8 @@ function renderSettings(){
   $('#pSlMode').value=st.slMode;
   const R=1+st.payout, M=buildMatrix(st.N,st.K,R);
   const be=breakEven(st.payout);
-  $('#cNote').innerHTML = `Cu acești parametri: țintă <b>+${pct(M.get(0,0)-1)}</b> per sesiune, `+
+  $('#cNote').innerHTML = `Cu acești parametri: țintă <b>+${pct(M.get(0,0)-1)}</b> `+
+    `(<b>+${money(round2((M.get(0,0)-1)*cur().startBalance))}</b>) per sesiune, `+
     `prima miză <b>${pct(stakeFrac(M,0,0,R),2)}</b> din balanță, lichidare după <b>${1+st.N-st.K}</b> pierderi. `+
     `Prag de rentabilitate: <b>${pct(be,2)}</b> rată de câștig.`;
   const dOn =sessionDist(be,st.N,st.K,st.payout,st.slPct,'stop');
@@ -2555,9 +2566,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 41 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 42 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 41 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 42 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
