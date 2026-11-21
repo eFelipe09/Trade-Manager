@@ -1729,7 +1729,16 @@ function dataCheck(){
   return { ses, breaks, badEnds, dups, noisy, overs, sum, chain, ghost:sum-chain, clean };
 }
 
-let checkRes = null, repairArm = false, repairTimer = null;
+let checkRes = null, repairArm = null, repairTimer = null;
+
+/* Un buton de reparat cere două apăsări. Prima îl armează, a doua îl execută;
+   dacă te răzgândești, se dezarmează singur după patru secunde. */
+function btnFix(cheie, etichetaCalm, etichetaArmat, latime){
+  const armat = repairArm === cheie;
+  return `<button class="btn ${armat?'btn-l':'btn-a'}" data-act="fix" data-k="${cheie}"`+
+         ` style="${latime||'width:100%'};margin-top:8px">`+
+         (armat ? etichetaArmat : etichetaCalm) + `</button>`;
+}
 
 function renderCheck(){
   const box=$('#checkBox'); if (!box) return;
@@ -1749,7 +1758,10 @@ function renderCheck(){
     plural(c.dups.length,'zi înregistrată de două ori','zile înregistrate de două ori'),
     `Un rând importat repetă exact profitul sesiunilor reale din aceeași zi — aceiași bani numărați de două ori.`+
     few(c.dups, x=>`<div class="ck-row"><span>${dayShort(x.day)}</span><span class="mono">${sgn(x.pl)} · ${plural(x.n,'sesiune reală','sesiuni reale')}</span></div>`)+
-    `<div class="ck-hint">Șterge rândul importat din <i>Jurnal</i>, apoi repară lanțul.</div>`);
+    `<div class="ck-hint">Rândul importat e cel de prisos: sesiunile reale ale zilei au deja banii.</div>`+
+    c.dups.map(x=>btnFix('dup:'+x.date,
+      'Șterge rândul importat din '+dayShort(x.day),
+      'Sigur? Apasă din nou — '+dayShort(x.day)+', '+sgn(x.pl))).join(''));
 
   if (c.breaks.length) h += block('b-warn','&#9888;',
     plural(c.breaks.length,'ruptură de lanț','rupturi de lanț'),
@@ -1759,7 +1771,9 @@ function renderCheck(){
   if (c.badEnds.length) h += block('b-bad','&#9888;',
     plural(c.badEnds.length,'sesiune cu final greșit','sesiuni cu final greșit'),
     `Finalul salvat nu se potrivește cu tranzacțiile din sesiune.`+
-    few(c.badEnds, x=>`<div class="ck-row"><span>${d(x.date)}</span><span class="mono">${money(x.end)} în loc de ${money(x.want)}</span></div>`));
+    few(c.badEnds, x=>`<div class="ck-row"><span>${d(x.date)}</span><span class="mono">${money(x.end)} în loc de ${money(x.want)}</span></div>`)+
+    btnFix('ends', 'Recalculează finalurile din tranzacții',
+      'Sigur? Apasă din nou ca să recalculez '+plural(c.badEnds.length,'finalul','finalurile')));
 
   if (Math.abs(c.ghost)>0.02) h += block('b-warn','&#9888;','Profit fantomă',
     `Suma profiturilor pe sesiuni e <i>${sgn(c.sum)}</i>, dar capitalul a crescut de fapt cu <i>${sgn(c.chain)}</i>. `+
@@ -1774,18 +1788,43 @@ function renderCheck(){
     `Nu le ating — banii ăia chiar i-ai pus la broker. Le arăt doar ca să le știi.`+
     few(c.overs, x=>`<div class="ck-row"><span>${d(x.date)} · tranz. ${x.no}</span><span class="mono">${money(x.stake)} față de ${money(x.sug)} <i class="${cls(x.d)}">${sgn(x.d)}</i></span></div>`));
 
-  const fixable = (c.breaks.length || c.noisy.length) && !c.dups.length;
-  if (fixable)
-    h += `<button class="btn ${repairArm?'btn-l':'btn-a'}" data-act="repairChain" style="width:100%">`+
-         (repairArm ? 'Sigur? Apasă din nou ca să repar lanțul' : 'Repară lanțul')+`</button>`+
+  const potFiReparate = (c.breaks.length || c.noisy.length) && !c.dups.length;
+  if (potFiReparate)
+    h += btnFix('chain','Repară lanțul','Sigur? Apasă din nou ca să repar lanțul')+
          `<div class="note" style="margin-top:7px">Relanțuiește sesiunile în ordine cronologică, păstrând profitul fiecăreia neatins, și curăță zecimalele în plus. Nu șterge nicio sesiune și nu schimbă nicio miză.</div>`;
   else if (c.breaks.length && c.dups.length)
-    h += `<div class="note">Repararea lanțului e dezactivată cât timp există zile dublate: altfel ar fixa în evidență și banii numărați de două ori. Șterge întâi dublura.</div>`;
+    h += `<div class="note">Repararea lanțului e dezactivată cât timp există zile dublate: altfel ar fixa în evidență și banii numărați de două ori. Șterge întâi dublura, apoi verifică din nou.</div>`;
+
+  if (c.overs.length && !c.breaks.length && !c.dups.length && !c.badEnds.length)
+    h += `<div class="note">Pentru mizele puse altfel decât cerea algoritmul nu există buton, și n-o să existe: alea sunt fapte, nu calcule.</div>`;
 
   box.innerHTML=h;
 }
 
-function runCheck(){ checkRes=dataCheck(); repairArm=false; renderCheck(); }
+function runCheck(){ checkRes=dataCheck(); repairArm=null; renderCheck(); }
+
+/* Fiecare reparație atinge un singur fel de problemă și spune exact ce a făcut. */
+function fixEnds(){
+  let n=0;
+  for (const s of S.sessions){
+    const tr=s.trades||[]; if (!tr.length) continue;
+    const vrea=round4(s.start+sesPL(s));
+    if (Math.abs(vrea-s.end)>EPSC){ s.end=vrea; n++; }
+  }
+  saveLog(); render();
+  note(n ? `${plural(n,'final recalculat','finaluri recalculate')} din tranzacții.` : 'N-am găsit ce recalcula.');
+  return n;
+}
+function fixDuplicat(dataSes){
+  const i=S.sessions.findIndex(s=>String(s.date)===String(dataSes));
+  if (i<0){ note('Rândul nu mai există.'); return 0; }
+  const s=S.sessions[i];
+  if ((s.trades||[]).length){ note('Rândul ăsta are tranzacții — nu-l șterg.'); return 0; }
+  S.sessions.splice(i,1);
+  saveLog(); render();
+  note('Rândul importat a fost șters. Verifică lanțul acum.');
+  return 1;
+}
 
 function repairChain(){
   const c=dataCheck();
@@ -1810,7 +1849,7 @@ function repairChain(){
   const live=(S.current&&S.current.trades||[]).length;
   if (!live){ S.settings.cap=bal; if (S.current) S.current.startBalance=bal; dbSet('settings',S.settings); dbSet('current',S.current); }
   saveLog(); render();
-  checkRes=dataCheck(); repairArm=false; renderCheck();
+  checkRes=dataCheck(); repairArm=null; renderCheck();
   note(live ? `${plural(n,'sesiune relanțuită','sesiuni relanțuite')} — capitalul rămâne neschimbat cât timp ai o sesiune în curs.`
             : `${plural(n,'sesiune relanțuită','sesiuni relanțuite')} · capital ${money(bal)}`);
 }
@@ -2656,10 +2695,21 @@ const ACTS = {
   toggleSess:(el)=>{ const i=Number(el.dataset.i);
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
-  repairChain:()=>{
-    if (!repairArm){ repairArm=true; renderCheck();
-      clearTimeout(repairTimer); repairTimer=setTimeout(()=>{ repairArm=false; renderCheck(); },4000); return; }
-    clearTimeout(repairTimer); repairChain();
+  fix:(el)=>{
+    const k=el.dataset.k;
+    if (repairArm!==k){                        // prima apăsare doar armează
+      repairArm=k; renderCheck();
+      clearTimeout(repairTimer);
+      repairTimer=setTimeout(()=>{ repairArm=null; renderCheck(); },4000);
+      return;
+    }
+    clearTimeout(repairTimer); repairArm=null;
+    if (k==='chain') repairChain();
+    else {
+      if (k==='ends') fixEnds();
+      else if (k.startsWith('dup:')) fixDuplicat(k.slice(4));
+      checkRes=dataCheck(); renderCheck();
+    }
   },
   hourScope:(el)=>{ hourScope = el.dataset.v==='month' ? 'month' : 'all'; clockCharts(); },
   anPrev:()=>{ anMonth = shiftMonth(anMonth||thisMonth(), -1); renderAnalysis(); },
@@ -3003,9 +3053,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 47 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 48 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 47 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 48 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
