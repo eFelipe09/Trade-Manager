@@ -144,6 +144,7 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 /* ---------- banner ---------- */
 .banner{border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13.5px;font-weight:500;display:flex;gap:10px;align-items:flex-start}
 .banner b{display:block;font-size:14px;margin-bottom:2px}
+.banner i{display:inline;font-style:normal;font-weight:700}
 .banner .ic{font-size:17px;line-height:1.2}
 .b-ok{background:var(--win-bg);border:1px solid var(--win-br);color:var(--on-win)}
 .b-warn{background:var(--warn-bg);border:1px solid var(--warn-br);color:var(--on-warn)}
@@ -198,6 +199,10 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .fit tr:active td{background:var(--press)}
 .fit tr.now td{background:var(--acc-bg)}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.ck-row{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;align-items:baseline}
+.ck-row>span:first-child{color:var(--dim);flex:0 0 auto}
+.ck-more{margin-top:5px;font-size:11.5px;color:var(--faint)}
+.ck-hint{margin-top:7px;font-size:12px}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
 .dot-ok{background:var(--win-v)} .dot-part{background:var(--warn-v)} .dot-bad{background:var(--loss-v)}
 .del{background:transparent;border:0;color:var(--faint);font:600 15px Inter,sans-serif;line-height:1;
@@ -670,6 +675,19 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Când tranzacționezi mai bine</h2>
+    <div class="seg" id="hourSeg">
+      <button data-act="hourScope" data-v="all">Tot istoricul</button>
+      <button data-act="hourScope" data-v="month">Luna asta</button>
+    </div>
+    <div id="hourChart" style="margin-top:10px"></div>
+    <div class="note" id="hourNote"></div>
+    <h2 style="margin-top:16px">Pe zile ale săptămânii</h2>
+    <div id="dowChart"></div>
+    <div class="note" id="dowNote"></div>
+  </div>
+
+  <div class="card">
     <h2>Tranzacții înregistrate</h2>
     <div class="grid g3">
       <div class="kv"><div class="k">Total</div><div class="v mono" id="aN">—</div></div>
@@ -814,6 +832,13 @@ svg{display:block;width:100%;height:auto}
       </div>
     </div>
     <div class="note">Fără cont, datele stau doar pe acest dispozitiv și nu pleacă nicăieri. Cu un cont (vezi <b>Sincronizare</b>) ajung și pe celelalte dispozitive ale tale, tot private. <b>Copiază backup</b> rămâne oricum util ca să le păstrezi separat.</div>
+  </div>
+
+  <div class="card">
+    <h2>Verificarea datelor</h2>
+    <button class="btn btn-g" data-act="runCheck" style="width:100%;margin-bottom:10px">Verifică evidența</button>
+    <div id="checkBox"></div>
+    <div class="note">Caută sesiuni care nu pornesc de unde s-a terminat precedenta, zile înregistrate de două ori, finaluri care nu se potrivesc cu tranzacțiile lor și profit care apare din nimic. Nu șterge nimic de capul ei.</div>
   </div>
 
   <div class="card">
@@ -1732,6 +1757,258 @@ function trendChart(){
                   : `<span class="down">în scădere cu ${Math.abs(drift*100).toFixed(1)} puncte</span>.`));
 }
 
+/* ---------- Când tranzacționezi mai bine ----------
+   Ora și ziua vin din marcajul de timp al fiecărei tranzacții. Sesiunile
+   importate păstrează doar numărul de câștiguri și pierderi, deci nu au oră
+   și rămân pe dinafară — le numărăm separat ca să se vadă pe ce se bazează. */
+/* ---------- Verificarea datelor ----------
+   Caută lucrurile care strică evidența fără să se vadă pe ecran: sesiuni care
+   nu pornesc de unde s-a terminat precedenta, zile înregistrate de două ori,
+   finaluri care nu se potrivesc cu tranzacțiile din ele. Nu șterge nimic —
+   doar spune ce a găsit. */
+const EPSC = 0.005;                                   // jumătate de cent
+const round4 = v => Math.round((v + Number.EPSILON) * 10000) / 10000;
+const sesPL = s => { const tr=s.trades||[];
+  return tr.length ? tr.reduce((x,t)=>x+(Number(t.ret)||0),0) : (s.end-s.start); };
+
+function dataCheck(){
+  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
+  const breaks=[], badEnds=[], dups=[], noisy=[], overs=[];
+
+  for (let i=1;i<ses.length;i++){
+    const g=ses[i].start-ses[i-1].end;
+    if (Math.abs(g)>EPSC) breaks.push({date:ses[i].date, prev:ses[i-1].end, start:ses[i].start, gap:g});
+  }
+  for (const s of ses){
+    if (!(s.trades||[]).length) continue;
+    const want=s.start+sesPL(s);
+    if (Math.abs(want-s.end)>EPSC) badEnds.push({date:s.date, end:s.end, want});
+  }
+  const byDay=new Map();
+  for (const s of ses){ const k=dayKey(s.date); if(!byDay.has(k)) byDay.set(k,[]); byDay.get(k).push(s); }
+  for (const [k,list] of byDay){
+    const imp=list.filter(s=>!(s.trades||[]).length), live=list.filter(s=>(s.trades||[]).length);
+    if (!imp.length || !live.length) continue;
+    const livePL=live.reduce((x,s)=>x+sesPL(s),0);
+    for (const s of imp) if (Math.abs(sesPL(s)-livePL)<0.02) dups.push({date:s.date, day:k, pl:sesPL(s), n:live.length});
+  }
+  const isNoisy = v => isFinite(v) && Math.abs(v*10000-Math.round(v*10000))>1e-6;
+  for (const s of ses) for (const f of ['start','end']) if (isNoisy(s[f])) noisy.push({date:s.date,f,v:s[f]});
+
+  for (const s of ses){
+    const tr=s.trades||[]; if (!tr.length || !(s.N>0 && s.K>0 && s.K<s.N)) continue;
+    let r; try{
+      r=replay({ startBalance:s.start, N:s.N, K:s.K,
+                 payout: s.payout!=null?s.payout:S.settings.payout,
+                 slPct:0, slMode:'alert', trades:tr });
+    }catch(e){ continue; }
+    for (const row of r.rows){
+      if (row.stake==null || row.suggested==null) continue;
+      const d=row.stake-row.suggested;
+      /* un cent-doi sunt rotunjiri, nu decizii: raportăm doar abaterile care chiar sar în ochi */
+      const prag=Math.max(0.02, 0.015*row.suggested);
+      if (Math.abs(d)>prag) overs.push({date:s.date, no:row.no, stake:row.stake, sug:row.suggested, d});
+    }
+  }
+  const sum   = ses.reduce((x,s)=>x+sesPL(s),0);
+  const chain = ses.length ? ses[ses.length-1].end-ses[0].start : 0;
+  const clean = !breaks.length && !badEnds.length && !dups.length && !noisy.length;
+  return { ses, breaks, badEnds, dups, noisy, overs, sum, chain, ghost:sum-chain, clean };
+}
+
+let checkRes = null, repairArm = false, repairTimer = null;
+
+function renderCheck(){
+  const box=$('#checkBox'); if (!box) return;
+  if (!checkRes){ box.innerHTML=''; return; }
+  const c=checkRes, d=t=>dayShort(dayKey(t))+" "+hhmm(t);
+  const few=(a,f,n)=>a.slice(0,n||4).map(f).join('')+(a.length>(n||4)?`<div class="ck-more">…și încă ${a.length-(n||4)}</div>`:'');
+  let h='';
+  const block=(cls,icon,title,body)=>`<div class="banner ${cls}" style="margin:0 0 9px"><span class="ic">${icon}</span><span><b>${title}</b>${body}</span></div>`;
+
+  if (!c.ses.length) { box.innerHTML=`<div class="empty">Nicio sesiune de verificat.</div>`; return; }
+
+  if (c.clean && Math.abs(c.ghost)<=0.02)
+    h += block('b-ok','&#10003;','Evidența e în regulă',
+      `${plural(c.ses.length,'sesiune verificată','sesiuni verificate')}, lanțul e continuu și suma profiturilor se potrivește cu diferența de capital.`);
+
+  if (c.dups.length) h += block('b-bad','&#9888;',
+    plural(c.dups.length,'zi înregistrată de două ori','zile înregistrate de două ori'),
+    `Un rând importat repetă exact profitul sesiunilor reale din aceeași zi — aceiași bani numărați de două ori.`+
+    few(c.dups, x=>`<div class="ck-row"><span>${dayShort(x.day)}</span><span class="mono">${sgn(x.pl)} · ${plural(x.n,'sesiune reală','sesiuni reale')}</span></div>`)+
+    `<div class="ck-hint">Șterge rândul importat din <i>Jurnal</i>, apoi repară lanțul.</div>`);
+
+  if (c.breaks.length) h += block('b-warn','&#9888;',
+    plural(c.breaks.length,'ruptură de lanț','rupturi de lanț'),
+    `O sesiune ar trebui să pornească de unde s-a terminat precedenta.`+
+    few(c.breaks, x=>`<div class="ck-row"><span>${d(x.date)}</span><span class="mono">${money(x.prev)} → ${money(x.start)} <i class="${cls(x.gap)}">${sgn(x.gap)}</i></span></div>`));
+
+  if (c.badEnds.length) h += block('b-bad','&#9888;',
+    plural(c.badEnds.length,'sesiune cu final greșit','sesiuni cu final greșit'),
+    `Finalul salvat nu se potrivește cu tranzacțiile din sesiune.`+
+    few(c.badEnds, x=>`<div class="ck-row"><span>${d(x.date)}</span><span class="mono">${money(x.end)} în loc de ${money(x.want)}</span></div>`));
+
+  if (Math.abs(c.ghost)>0.02) h += block('b-warn','&#9888;','Profit fantomă',
+    `Suma profiturilor pe sesiuni e <i>${sgn(c.sum)}</i>, dar capitalul a crescut de fapt cu <i>${sgn(c.chain)}</i>. `+
+    `Diferența de <i>${sgn(c.ghost)}</i> vine din rupturile și dublurile de mai sus.`);
+
+  if (c.noisy.length) h += block('b-warn','&#9888;',
+    `${plural(c.noisy.length,'valoare','valori')} cu zecimale în plus`,
+    `Sume ca 879,0092000000001, rămase din calcule. Nu strică nimic, dar se văd urât în jurnal.`);
+
+  if (c.overs.length) h += block('b-warn','&#9888;',
+    plural(c.overs.length,'miză diferită de algoritm','mize diferite de algoritm'),
+    `Nu le ating — banii ăia chiar i-ai pus la broker. Le arăt doar ca să le știi.`+
+    few(c.overs, x=>`<div class="ck-row"><span>${d(x.date)} · tranz. ${x.no}</span><span class="mono">${money(x.stake)} față de ${money(x.sug)} <i class="${cls(x.d)}">${sgn(x.d)}</i></span></div>`));
+
+  const fixable = (c.breaks.length || c.noisy.length) && !c.dups.length;
+  if (fixable)
+    h += `<button class="btn ${repairArm?'btn-l':'btn-a'}" data-act="repairChain" style="width:100%">`+
+         (repairArm ? 'Sigur? Apasă din nou ca să repar lanțul' : 'Repară lanțul')+`</button>`+
+         `<div class="note" style="margin-top:7px">Relanțuiește sesiunile în ordine cronologică, păstrând profitul fiecăreia neatins, și curăță zecimalele în plus. Nu șterge nicio sesiune și nu schimbă nicio miză.</div>`;
+  else if (c.breaks.length && c.dups.length)
+    h += `<div class="note">Repararea lanțului e dezactivată cât timp există zile dublate: altfel ar fixa în evidență și banii numărați de două ori. Șterge întâi dublura.</div>`;
+
+  box.innerHTML=h;
+}
+
+function runCheck(){ checkRes=dataCheck(); repairArm=false; renderCheck(); }
+
+function repairChain(){
+  const c=dataCheck();
+  if (c.dups.length){ note('Întâi șterge zilele dublate.'); return; }
+  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
+  if (!ses.length) return;
+  let bal=round4(ses[0].start), n=0;
+  for (const s of ses){
+    const pl=sesPL(s), ns=round4(bal);
+    bal=round4(bal+pl);
+    if (Math.abs(ns-s.start)>1e-9 || Math.abs(bal-s.end)>1e-9) n++;
+    s.start=ns; s.end=bal;
+    if (s.N>0 && s.K>0 && s.K<s.N){
+      try{
+        const M=buildMatrix(s.N, s.K, 1+(s.payout!=null?s.payout:S.settings.payout));
+        s.goal=s.start*M.get(0,0);
+        if (s.slPct!=null) s.stop=round4(s.start*(1-s.slPct));
+      }catch(e){}
+    }
+  }
+  S.sessions=ses;
+  const live=(S.current&&S.current.trades||[]).length;
+  if (!live){ S.settings.cap=bal; if (S.current) S.current.startBalance=bal; dbSet('settings',S.settings); dbSet('current',S.current); }
+  saveLog(); render();
+  checkRes=dataCheck(); repairArm=false; renderCheck();
+  note(live ? `${plural(n,'sesiune relanțuită','sesiuni relanțuite')} — capitalul rămâne neschimbat cât timp ai o sesiune în curs.`
+            : `${plural(n,'sesiune relanțuită','sesiuni relanțuite')} · capital ${money(bal)}`);
+}
+
+let hourScope = 'all';                   // 'all' | 'month'
+
+function clockStats(scope){
+  const hours = Array.from({length:24},(_,k)=>({k,w:0,l:0}));
+  const dows  = Array.from({length:7}, (_,k)=>({k,w:0,l:0}));
+  let timed=0, untimed=0;
+  const eat = list => {
+    for (const t of (list||[])){
+      const ts=Number(t.ts);
+      if (!isFinite(ts) || ts<=0){ untimed++; continue; }
+      const d=new Date(ts); if (isNaN(d)){ untimed++; continue; }
+      const slot = t.result==='W' ? 'w' : 'l';
+      hours[d.getHours()][slot]++;
+      dows[(d.getDay()+6)%7][slot]++;    // luni = 0
+      timed++;
+    }
+  };
+  for (const s of S.sessions){
+    if (scope==='month' && monthKey(s.date)!==anMonth) continue;
+    const tr=s.trades||[];
+    if (tr.length) eat(tr);
+    else untimed += (Number(s.wins)||0)+(Number(s.losses)||0);
+  }
+  if (scope!=='month' || anMonth===thisMonth()) eat(S.current && S.current.trades);
+  const fin = a => { for (const b of a){ b.n=b.w+b.l; b.rate=b.n?b.w/b.n:null; } return a; };
+  return { hours:fin(hours), dows:fin(dows), timed, untimed,
+           rate: timed ? hours.reduce((s,h)=>s+h.w,0)/timed : null };
+}
+
+/* z față de rata ta generală: cât de greu e să pui diferența pe seama hazardului */
+function zOf(b, p){
+  if (!b.n || p==null || p<=0 || p>=1) return 0;
+  return (b.rate - p) / Math.sqrt(p*(1-p)/b.n);
+}
+
+const MIN_N = 12;                        // sub atât, o rată nu spune nimic
+
+function rateBars(items, labelOf, p, be, emptyMsg){
+  const show = items.filter(b=>b.n>0);
+  if (!show.length) return `<div class="empty">${emptyMsg}</div>`;
+  const W=430, H=186, pl=34, pr=8, pt=16, pb=30;
+  const n=show.length, gap=(W-pl-pr)/n, bw=Math.min(34, gap*0.66);
+  const y=v=>pt+(H-pt-pb)*(1-v);
+  const x=i=>pl+gap*i+gap/2;
+  const maxN=Math.max(...show.map(b=>b.n));
+  let grid='';
+  for (const f of [0,.5,1]){ const yy=y(f).toFixed(1);
+    grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--line)"/>`+
+          `<text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="var(--faint)" font-size="10" text-anchor="end" font-family="monospace">${(f*100).toFixed(0)}%</text>`; }
+  let bars='', ticks='';
+  show.forEach((b,i)=>{
+    const yy=y(b.rate), base=y(0), h=Math.max(1.5, base-yy);
+    const thin = b.n < MIN_N;
+    const col = thin ? 'var(--faint)' : (b.rate>=be ? 'var(--win-v)' : 'var(--loss-v)');
+    const op = thin ? 0.42 : (0.45+0.55*Math.min(1,b.n/Math.max(maxN,1))).toFixed(2);
+    bars += `<rect x="${(x(i)-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}" opacity="${op}"/>`;
+    if (n<=12) bars += `<text x="${x(i).toFixed(1)}" y="${(yy-4).toFixed(1)}" fill="var(--dim)" font-size="9" text-anchor="middle" font-family="monospace">${(b.rate*100).toFixed(0)}</text>`;
+    ticks += `<text x="${x(i).toFixed(1)}" y="${H-16}" fill="var(--faint)" font-size="9.5" text-anchor="middle" font-family="monospace">${labelOf(b)}</text>`+
+             `<text x="${x(i).toFixed(1)}" y="${H-5}" fill="var(--faint)" font-size="8.5" text-anchor="middle" font-family="monospace">${b.n}</text>`;
+  });
+  const beY=y(be).toFixed(1);
+  return `<svg viewBox="0 0 ${W} ${H}" style="height:auto">${grid}${bars}
+    <line x1="${pl}" y1="${beY}" x2="${W-pr}" y2="${beY}" stroke="var(--warn-v)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    ${ticks}</svg>`;
+}
+
+const DOW = ['Lu','Ma','Mi','Jo','Vi','Sâ','Du'];
+const DOW_LONG = ['luni','marți','miercuri','joi','vineri','sâmbătă','duminică'];
+
+function clockNote(buckets, p, be, nameOf, unit){
+  const solid = buckets.filter(b=>b.n>=MIN_N);
+  if (!solid.length) return `Niciun ${unit} n-a strâns încă ${MIN_N} tranzacții, deci n-are rost să citim nimic din bare.`;
+  const scored = solid.map(b=>({b, z:zOf(b,p)})).sort((a,c)=>a.z-c.z);
+  const lo=scored[0], hi=scored[scored.length-1];
+  let h = `Barele palide au sub ${MIN_N} tranzacții — prea puține ca să însemne ceva. Sub fiecare bară scrie câte tranzacții are.`;
+  const sig = s => Math.abs(s.z) >= 2;
+  if (sig(hi) && hi.z>0)
+    h += ` <b>${nameOf(hi.b)}</b> iese în evidență: ${pct(hi.b.rate,0)} din ${hi.b.n} tranzacții, peste media ta de ${pct(p,1)} mai mult decât ar explica hazardul.`;
+  if (sig(lo) && lo.z<0)
+    h += ` <b>${nameOf(lo.b)}</b> stă prost: ${pct(lo.b.rate,0)} din ${lo.b.n} tranzacții — sub media ta, și nu pare întâmplare.`;
+  if (!sig(hi) && !sig(lo))
+    h += ` Deocamdată nicio diferență nu e mai mare decât se poate întâmpla din noroc: toate stau în jurul mediei tale de ${pct(p,1)}.`;
+  return h;
+}
+
+function clockCharts(){
+  const st=S.settings, be=breakEven(st.payout);
+  const c=clockStats(hourScope);
+  const seg=$("#hourSeg"); if (seg) [...seg.querySelectorAll("button")].forEach(x=>x.classList.toggle("on", x.dataset.v===hourScope));
+  const where = hourScope==='month' ? monthLabel(anMonth) : 'tot istoricul';
+  if (!c.timed){
+    $('#hourChart').innerHTML=`<div class="empty">Nicio tranzacție cu oră în ${where}.</div>`;
+    $('#dowChart').innerHTML='';
+    $('#hourNote').innerHTML = c.untimed
+      ? `Cele ${c.untimed} tranzacții din ${where} vin din import și n-au oră salvată. De aici înainte, fiecare tranzacție pe care o înregistrezi în aplicație intră la socoteală.`
+      : '';
+    $('#dowNote').innerHTML=''; return;
+  }
+  $('#hourChart').innerHTML = rateBars(c.hours, b=>String(b.k).padStart(2,'0'), c.rate, be, 'Nicio oră cu tranzacții.');
+  $('#dowChart').innerHTML  = rateBars(c.dows,  b=>DOW[b.k], c.rate, be, 'Nicio zi cu tranzacții.');
+  const base = `Pe ${c.timed} tranzacții cu oră din ${where}`+
+    (c.untimed ? `, plus ${c.untimed} importate care n-au oră și nu intră la socoteală` : '')+
+    `. Linia punctată e pragul de rentabilitate, ${pct(be,2)}. `;
+  $('#hourNote').innerHTML = base + clockNote(c.hours, c.rate, be, b=>`Ora ${String(b.k).padStart(2,'0')}:00`, 'ceas');
+  $('#dowNote').innerHTML  = clockNote(c.dows, c.rate, be, b=>DOW_LONG[b.k].replace(/^./,m=>m.toUpperCase()), 'zi a săptămânii');
+}
+
 function renderAnalysis(){
   const st=S.settings, be=breakEven(st.payout);
   const avail = monthsWithData();
@@ -1756,7 +2033,7 @@ function renderAnalysis(){
     ['#rEv','#rOk','#rWorst','#rDd'].forEach(s=>$(s).textContent='—');
     $('#ruinTbl').innerHTML='';
     $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
-    trendChart();
+    trendChart(); clockCharts();
     $('#aWipe').innerHTML = wipeBtn();
     return;
   }
@@ -1805,7 +2082,7 @@ function renderAnalysis(){
   }
   $('#ruinTbl').innerHTML=h+'</tbody>';
   $('#escChart').innerHTML=escChart(); $('#escNote').innerHTML=escNote();
-  trendChart();
+  trendChart(); clockCharts();
   $('#aWipe').innerHTML = wipeBtn();
 }
 
@@ -2224,6 +2501,13 @@ const ACTS = {
     openDays.has(k) ? openDays.delete(k) : openDays.add(k); renderJournal(); },
   toggleSess:(el)=>{ const i=Number(el.dataset.i);
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
+  runCheck,
+  repairChain:()=>{
+    if (!repairArm){ repairArm=true; renderCheck();
+      clearTimeout(repairTimer); repairTimer=setTimeout(()=>{ repairArm=false; renderCheck(); },4000); return; }
+    clearTimeout(repairTimer); repairChain();
+  },
+  hourScope:(el)=>{ hourScope = el.dataset.v==='month' ? 'month' : 'all'; clockCharts(); },
   anPrev:()=>{ anMonth = shiftMonth(anMonth||thisMonth(), -1); renderAnalysis(); },
   anNext:()=>{ anMonth = shiftMonth(anMonth||thisMonth(),  1); renderAnalysis(); },
   pickMonth:(el)=>{ anMonth = el.dataset.m; renderAnalysis(); window.scrollTo(0,0); },
@@ -2566,9 +2850,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 43 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 43 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 44 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
