@@ -221,16 +221,21 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .grp.open .caret{transform:rotate(90deg)}
 .grp .ttl{flex:1;min-width:0}
 .grp .ttl b{display:block;font-size:14px;font-weight:600}
-.grp .ttl span{font-size:11.5px;color:var(--faint)}
+.grp .ttl span:not(.pill){font-size:11.5px;color:var(--faint)}
 .grp .amt2{font-weight:700;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .grp .body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
 .grp.open .body{display:block}
+.grp.luna{background:var(--panel);border-color:var(--line)}
+.grp.luna>.hd2{padding:13px 13px}
+.grp.luna>.hd2 .ttl b{font-size:15px;letter-spacing:-.01em}
+.grp.luna>.body{padding:9px 9px 3px;background:var(--bg)}
+.grp.luna .grp{background:var(--panel2)}
 .sub-grp{border-top:1px solid var(--hair)}
 .sub-grp:first-child{border-top:0}
 .sub-hd{display:flex;align-items:center;gap:8px;padding:9px 0;cursor:pointer}
 .sub-hd:active{opacity:.7}
 .sub-hd .ttl{flex:1;min-width:0;font-size:13px}
-.sub-hd .ttl span{color:var(--faint);font-size:11.5px}
+.sub-hd .ttl span:not(.pill){color:var(--faint);font-size:11.5px}
 .sub-body{display:none;padding:0 0 9px}
 .sub-grp.open .sub-body{display:block}
 .trades-mini{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -295,8 +300,10 @@ select{font-family:Inter,sans-serif}
 .tbl tr:last-child td{border-bottom:0}
 .tbl .muted{color:var(--faint)}
 .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em}
-.pill-w{background:var(--win-bg);color:var(--win)}
-.pill-l{background:var(--loss-bg);color:var(--loss)}
+/* text pe fundal colorat: culorile „on-" sunt alese tocmai pentru asta,
+   cele de bază sunt gândite pentru text pe panou curat */
+.pill-w{background:var(--win-bg);color:var(--on-win)}
+.pill-l{background:var(--loss-bg);color:var(--on-loss)}
 .pill-n{background:var(--neutral-bg);color:var(--dim)}
 .scroll{overflow-x:auto;margin:0 -14px;padding:0 14px}
 
@@ -531,8 +538,8 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
-    <h2>Sesiuni pe zile</h2>
-    <div class="note" style="margin:0 0 10px">Apasă o zi ca s-o deschizi, apoi o sesiune ca să-i vezi tranzacțiile cu ora exactă.</div>
+    <h2>Istoricul sesiunilor</h2>
+    <div class="note" style="margin:0 0 10px">Apasă o lună, apoi o zi, apoi o sesiune ca să-i vezi tranzacțiile cu ora exactă.</div>
     <div id="logBox"></div>
   </div>
   <div id="jWipe"></div>
@@ -1525,7 +1532,7 @@ function renderDays(){
 /* ============================================================
    RENDER — journal
    ============================================================ */
-const openDays = new Set(), openSess = new Set();
+const openDays = new Set(), openSess = new Set(), openMonths = new Set();
 const SLBL = { target:['ȚINTĂ','w'], stopped:['STOP','l'], liquidated:['LIQ','l'],
                exhausted:['X','l'], closed:['MANUAL','n'] };
 
@@ -1546,8 +1553,24 @@ function renderJournal(){
   $('#jStart').textContent = money(ss[0].start);
 
   const idxOf = new Map(ss.map((x,i)=>[x,i]));
-  let h='';
+
+  /* Zilele se adună pe luni. Luna cea mai recentă e deschisă din start;
+     restul stau strânse, altfel lista devine un sul interminabil. */
+  const luni = new Map();
   for (const d of days()){
+    const mk = d.key.slice(0,7);
+    if (!luni.has(mk)) luni.set(mk, { mk, zile:[], pl:0, sesiuni:0, tranz:0 });
+    const L = luni.get(mk);
+    L.zile.push(d); L.pl += d.pl; L.sesiuni += d.nSessions; L.tranz += d.wins + d.losses;
+  }
+  const lista = [...luni.values()];
+  if (lista.length && !openMonths.size) openMonths.add(lista[0].mk);
+
+  let h='';
+  for (const L of lista){
+  const lunaDeschisa = openMonths.has(L.mk);
+  let hl='';
+  for (const d of L.zile){
     const open = openDays.has(d.key);
     const span = d.nSessions>1 ? `${hhmm(d.firstTs)}–${hhmm(d.lastTs)}` : hhmm(d.firstTs);
     let inner='';
@@ -1577,7 +1600,7 @@ function renderJournal(){
             : '<div class="note" style="margin:4px 0">Fără tranzacții salvate.</div>'}</div>
         </div>`;
     }
-    h += `<div class="grp${open?' open':''}">
+    hl += `<div class="grp${open?' open':''}">
         <div class="hd2" data-act="toggleDay" data-k="${d.key}">
           <span class="caret">▶</span>
           <span class="ttl"><b>${dayLabel(d.key)}${d.closed?' ✓':''}</b>
@@ -1587,6 +1610,16 @@ function renderJournal(){
         </div>
         <div class="body">${inner}</div>
       </div>`;
+  }
+  h += `<div class="grp luna${lunaDeschisa?' open':''}">
+      <div class="hd2" data-act="toggleMonth" data-k="${L.mk}">
+        <span class="caret">▶</span>
+        <span class="ttl"><b>${monthLabel(L.mk)}</b>
+          <span>${plural(L.zile.length,'zi','zile')} · ${plural(L.sesiuni,'sesiune','sesiuni')} · ${plural(L.tranz,'tranzacție','tranzacții')}</span></span>
+        <span class="amt2 ${cls(L.pl)}">${sgn(L.pl)}</span>
+      </div>
+      <div class="body">${hl}</div>
+    </div>`;
   }
   $('#logBox').innerHTML = h;
   $('#jWipe').innerHTML = wipeBtn();
@@ -2925,7 +2958,7 @@ const ACTS = {
     if (delArm!=='all') return arm('all', ()=>{ renderDays(); renderJournal(); renderAnalysis(); });
     disarm();
     const fb=earliestStart();
-    S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear();
+    S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear(); openMonths.clear();
     saveLog();
     const r=rebase(fb);
     note('Istoric \u0219ters' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
@@ -2944,6 +2977,8 @@ const ACTS = {
     saveLog();
     note('Zi redeschis\u0103'); render();
   },
+  toggleMonth:(el)=>{ const k=el.dataset.k;
+    openMonths.has(k) ? openMonths.delete(k) : openMonths.add(k); renderJournal(); },
   toggleDay:(el)=>{ const k=el.dataset.k;
     openDays.has(k) ? openDays.delete(k) : openDays.add(k); renderJournal(); },
   toggleSess:(el)=>{ const i=Number(el.dataset.i);
@@ -3314,9 +3349,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 50 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 51 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 50 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 51 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
