@@ -577,15 +577,23 @@ svg{display:block;width:100%;height:auto}
 
   <div class="card">
     <h2>Când tranzacționezi mai bine</h2>
+    <div class="note" style="margin:0 0 9px">Rata de câștig, împărțită după ora la care ai deschis tranzacția.</div>
     <div class="seg" id="hourSeg">
       <button data-act="hourScope" data-v="all">Tot istoricul</button>
       <button data-act="hourScope" data-v="month">Luna asta</button>
     </div>
     <div id="hourChart" style="margin-top:10px"></div>
+    <div class="note" id="hourLeg"></div>
     <div class="note" id="hourNote"></div>
     <h2 style="margin-top:16px">Pe zile ale săptămânii</h2>
     <div id="dowChart"></div>
+    <div class="note" id="dowLeg"></div>
     <div class="note" id="dowNote"></div>
+
+    <h2 style="margin-top:16px">Pe săptămâni din lună</h2>
+    <div id="weekChart"></div>
+    <div class="note" id="weekLeg"></div>
+    <div class="note" id="weekNote"></div>
   </div>
 
   <div class="card">
@@ -2131,9 +2139,18 @@ function repairChain(){
 
 let hourScope = 'all';                   // 'all' | 'month'
 
+/* A câta săptămână din lună, după calendar: săptămânile încep lunea, iar
+   prima e cea în care cade 1 ale lunii — chiar dacă are doar o zi sau două. */
+function saptDinLuna(d){
+  const prima = new Date(d.getFullYear(), d.getMonth(), 1);
+  const decalaj = (prima.getDay()+6)%7;              // luni = 0
+  return Math.floor((d.getDate()-1+decalaj)/7);      // 0..5
+}
+
 function clockStats(scope){
   const hours = Array.from({length:24},(_,k)=>({k,w:0,l:0}));
   const dows  = Array.from({length:7}, (_,k)=>({k,w:0,l:0}));
+  const sapt  = Array.from({length:6}, (_,k)=>({k,w:0,l:0}));
   let timed=0, untimed=0;
   const eat = list => {
     for (const t of (list||[])){
@@ -2143,6 +2160,7 @@ function clockStats(scope){
       const slot = t.result==='W' ? 'w' : 'l';
       hours[d.getHours()][slot]++;
       dows[(d.getDay()+6)%7][slot]++;    // luni = 0
+      sapt[Math.min(5, saptDinLuna(d))][slot]++;
       timed++;
     }
   };
@@ -2154,7 +2172,7 @@ function clockStats(scope){
   }
   if (scope!=='month' || anMonth===thisMonth()) eat(S.current && S.current.trades);
   const fin = a => { for (const b of a){ b.n=b.w+b.l; b.rate=b.n?b.w/b.n:null; } return a; };
-  return { hours:fin(hours), dows:fin(dows), timed, untimed,
+  return { hours:fin(hours), dows:fin(dows), sapt:fin(sapt), timed, untimed,
            rate: timed ? hours.reduce((s,h)=>s+h.w,0)/timed : null };
 }
 
@@ -2166,33 +2184,51 @@ function zOf(b, p){
 
 const MIN_N = 12;                        // sub atât, o rată nu spune nimic
 
-function rateBars(items, labelOf, p, be, emptyMsg){
-  const show = items.filter(b=>b.n>0);
-  if (!show.length) return `<div class="empty">${emptyMsg}</div>`;
+/* toateBarele: pentru zilele săptămânii și săptămânile lunii arătăm și
+   căsuțele goale. Faptul că n-ai tranzacționat lunea sau în prima săptămână
+   e el însuși o informație, iar fără ele axa nu se mai înțelege. */
+function rateBars(items, labelOf, p, be, emptyMsg, toateBarele){
+  const cuDate = items.filter(b=>b.n>0);
+  if (!cuDate.length) return `<div class="empty">${emptyMsg}</div>`;
+  let show = cuDate;
+  if (toateBarele){
+    const ultim = items.reduce((m,b,i)=>b.n>0?i:m, 0);
+    const minim = typeof toateBarele==='number' ? toateBarele : items.length-1;
+    show = items.filter((b,i)=> i <= Math.max(ultim, minim));
+  }
   const W=430, H=186, pl=34, pr=8, pt=16, pb=30;
   const n=show.length, gap=(W-pl-pr)/n, bw=Math.min(34, gap*0.66);
   const y=v=>pt+(H-pt-pb)*(1-v);
   const x=i=>pl+gap*i+gap/2;
-  const maxN=Math.max(...show.map(b=>b.n));
+  const maxN=Math.max(...cuDate.map(b=>b.n));
   let grid='';
   for (const f of [0,.5,1]){ const yy=y(f).toFixed(1);
     grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--line)"/>`+
           `<text x="${pl-6}" y="${(+yy+3.5).toFixed(1)}" fill="var(--faint)" font-size="10" text-anchor="end" font-family="monospace">${(f*100).toFixed(0)}%</text>`; }
   let bars='', ticks='';
   show.forEach((b,i)=>{
+    if (!b.n){                                    // căsuță goală: doar o liniuță pe zero
+      bars  += `<line x1="${(x(i)-bw/2).toFixed(1)}" y1="${y(0).toFixed(1)}" x2="${(x(i)+bw/2).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--line)" stroke-width="2"/>`;
+      ticks += `<text x="${x(i).toFixed(1)}" y="${H-16}" fill="var(--faint)" font-size="9.5" text-anchor="middle" font-family="monospace">${labelOf(b)}</text>`+
+               `<text x="${x(i).toFixed(1)}" y="${H-5}" fill="var(--faint)" font-size="8.5" text-anchor="middle" font-family="monospace">—</text>`;
+      return;
+    }
     const yy=y(b.rate), base=y(0), h=Math.max(1.5, base-yy);
     const thin = b.n < MIN_N;
     const col = thin ? 'var(--faint)' : (b.rate>=be ? 'var(--win-v)' : 'var(--loss-v)');
     const op = thin ? 0.42 : (0.45+0.55*Math.min(1,b.n/Math.max(maxN,1))).toFixed(2);
     bars += `<rect x="${(x(i)-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}" opacity="${op}"/>`;
-    if (n<=12) bars += `<text x="${x(i).toFixed(1)}" y="${(yy-4).toFixed(1)}" fill="var(--dim)" font-size="9" text-anchor="middle" font-family="monospace">${(b.rate*100).toFixed(0)}</text>`;
-    ticks += `<text x="${x(i).toFixed(1)}" y="${H-16}" fill="var(--faint)" font-size="9.5" text-anchor="middle" font-family="monospace">${labelOf(b)}</text>`+
-             `<text x="${x(i).toFixed(1)}" y="${H-5}" fill="var(--faint)" font-size="8.5" text-anchor="middle" font-family="monospace">${b.n}</text>`;
+    if (n<=12) bars += `<text x="${x(i).toFixed(1)}" y="${(yy-4).toFixed(1)}" fill="var(--dim)" font-size="9" text-anchor="middle" font-family="monospace"`+
+      ` stroke="var(--panel)" stroke-width="2.5" paint-order="stroke" stroke-linejoin="round">${(b.rate*100).toFixed(0)}</text>`;
+    ticks += `<text x="${x(i).toFixed(1)}" y="${H-16}" fill="var(--dim)" font-size="9.5" text-anchor="middle" font-family="monospace">${labelOf(b)}</text>`+
+             `<text x="${x(i).toFixed(1)}" y="${H-5}" fill="var(--faint)" font-size="8.5" text-anchor="middle" font-family="monospace">${b.n}×</text>`;
   });
   const beY=y(be).toFixed(1);
-  return `<svg viewBox="0 0 ${W} ${H}" style="height:auto">${grid}${bars}
+  /* pragul se trage înaintea barelor: altfel linia punctată taie exact peste
+     cifra de deasupra barelor care stau în dreptul lui */
+  return `<svg viewBox="0 0 ${W} ${H}" style="height:auto">${grid}
     <line x1="${pl}" y1="${beY}" x2="${W-pr}" y2="${beY}" stroke="var(--warn-v)" stroke-width="1.5" stroke-dasharray="5 4"/>
-    ${ticks}</svg>`;
+    ${bars}${ticks}</svg>`;
 }
 
 const DOW = ['Lu','Ma','Mi','Jo','Vi','Sâ','Du'];
@@ -2203,7 +2239,7 @@ function clockNote(buckets, p, be, nameOf, unit){
   if (!solid.length) return `Niciun ${unit} n-a strâns încă ${MIN_N} tranzacții, deci n-are rost să citim nimic din bare.`;
   const scored = solid.map(b=>({b, z:zOf(b,p)})).sort((a,c)=>a.z-c.z);
   const lo=scored[0], hi=scored[scored.length-1];
-  let h = `Barele palide au sub ${MIN_N} tranzacții — prea puține ca să însemne ceva. Sub fiecare bară scrie câte tranzacții are.`;
+  let h = `Barele palide au sub ${MIN_N} tranzacții — prea puține ca să însemne ceva.`;
   const sig = s => Math.abs(s.z) >= 2;
   if (sig(hi) && hi.z>0)
     h += ` <b>${nameOf(hi.b)}</b> iese în evidență: ${pct(hi.b.rate,0)} din ${hi.b.n} tranzacții, peste media ta de ${pct(p,1)} mai mult decât ar explica hazardul.`;
@@ -2219,21 +2255,36 @@ function clockCharts(){
   const c=clockStats(hourScope);
   const seg=$("#hourSeg"); if (seg) [...seg.querySelectorAll("button")].forEach(x=>x.classList.toggle("on", x.dataset.v===hourScope));
   const where = hourScope==='month' ? monthLabel(anMonth) : 'tot istoricul';
+  const bLuna = document.querySelector('#hourSeg button[data-v="month"]');
+  if (bLuna) bLuna.textContent = anMonth ? monthLabel(anMonth).replace(/ \d{4}$/,'') : 'Luna asta';
   if (!c.timed){
     $('#hourChart').innerHTML=`<div class="empty">Nicio tranzacție cu oră în ${where}.</div>`;
     $('#dowChart').innerHTML='';
     $('#hourNote').innerHTML = c.untimed
       ? `Cele ${c.untimed} tranzacții din ${where} vin din import și n-au oră salvată. De aici înainte, fiecare tranzacție pe care o înregistrezi în aplicație intră la socoteală.`
       : '';
-    $('#dowNote').innerHTML=''; return;
+    $('#dowNote').innerHTML=''; $('#hourLeg').innerHTML=''; $('#dowLeg').innerHTML='';
+    $('#weekChart').innerHTML=''; $('#weekLeg').innerHTML=''; $('#weekNote').innerHTML=''; return;
   }
-  $('#hourChart').innerHTML = rateBars(c.hours, b=>String(b.k).padStart(2,'0'), c.rate, be, 'Nicio oră cu tranzacții.');
-  $('#dowChart').innerHTML  = rateBars(c.dows,  b=>DOW[b.k], c.rate, be, 'Nicio zi cu tranzacții.');
+  const nrOre = c.hours.filter(b=>b.n>0).length;
+  $('#hourChart').innerHTML = rateBars(c.hours,
+    b => String(b.k).padStart(2,'0') + (nrOre<=10 ? ':00' : 'h'),
+    c.rate, be, 'Nicio oră cu tranzacții.');
+  $('#dowChart').innerHTML  = rateBars(c.dows,  b=>DOW[b.k], c.rate, be, 'Nicio zi cu tranzacții.', 6);
+  $('#weekChart').innerHTML = rateBars(c.sapt,  b=>'S'+(b.k+1), c.rate, be, 'Nicio săptămână cu tranzacții.', 4);
+  $('#hourLeg').innerHTML = `<b>Cum se citește:</b> fiecare bară e o oră din zi. Numărul de deasupra e `+
+    `rata de câștig la ora aia, cel de dedesubt câte tranzacții ai făcut atunci.`;
+  $('#dowLeg').innerHTML = `<b>Cum se citește:</b> fiecare bară e o zi a săptămânii. Sus rata de câștig, jos câte tranzacții. `+
+    `O liniuță cu <i>—</i> dedesubt înseamnă că n-ai tranzacționat deloc în ziua aia.`;
+  $('#weekLeg').innerHTML = `<b>Cum se citește:</b> <i>S1</i> e prima săptămână calendaristică a lunii — cea în care cade data de 1, `+
+    `chiar dacă ține doar o zi sau două. Săptămânile încep lunea, ca în calendar. `+
+    `<i>S5</i> și <i>S6</i> apar doar în lunile care se întind atât.`;
   const base = `Pe ${c.timed} tranzacții cu oră din ${where}`+
     (c.untimed ? `, plus ${c.untimed} importate care n-au oră și nu intră la socoteală` : '')+
     `. Linia punctată e pragul de rentabilitate, ${pct(be,2)}. `;
   $('#hourNote').innerHTML = base + clockNote(c.hours, c.rate, be, b=>`Ora ${String(b.k).padStart(2,'0')}:00`, 'ceas');
   $('#dowNote').innerHTML  = clockNote(c.dows, c.rate, be, b=>DOW_LONG[b.k].replace(/^./,m=>m.toUpperCase()), 'zi a săptămânii');
+  $('#weekNote').innerHTML = clockNote(c.sapt, c.rate, be, b=>'Săptămâna '+(b.k+1)+' a lunii', 'săptămână');
 }
 
 /* ============================================================
@@ -3354,9 +3405,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 52 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 54 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 52 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 54 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
