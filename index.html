@@ -116,6 +116,9 @@ nav button{
   font:600 13px Inter,sans-serif;padding:7px 9px;border-radius:9px;cursor:pointer;
 }
 nav button.on{background:var(--panel2);color:var(--txt)}
+nav button.semn{position:relative}
+nav button.semn::after{content:'';position:absolute;top:5px;right:5px;width:6px;height:6px;
+  border-radius:50%;background:var(--warn-v)}
 /* șase file nu încap pe ecrane înguste la mărimea obișnuită */
 @media (max-width:400px){
   nav{gap:1px}
@@ -748,6 +751,21 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Potrivirea cu brokerul</h2>
+    <div id="reconBox"></div>
+    <div class="fld" style="margin:11px 0 0"><label>Balanța de la broker, acum</label>
+      <div class="row2"><input id="reconIn" inputmode="decimal" placeholder="de ex. 921,87">
+        <button class="btn btn-a" data-act="recon">Compară</button></div></div>
+    <div class="note" id="reconNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ce ai schimbat</h2>
+    <div id="istBox"></div>
+    <div class="note">Orice modificare de capital, payout, parametri sau stop loss rămâne aici cu data. Când ceva nu mai torna, prima întrebare e ce s-a schimbat și când.</div>
+  </div>
+
+  <div class="card">
     <h2>Verificarea datelor</h2>
     <button class="btn btn-g" data-act="runCheck" style="width:100%;margin-bottom:10px">Verifică evidența</button>
     <div id="checkBox"></div>
@@ -905,6 +923,9 @@ function normSettings(v){
   if (v.slMode === 'stop' || v.slMode === 'alert') o.slMode = v.slMode;
   if (v.dgFmt === 'pct' || v.dgFmt === 'abs') o.dgFmt = v.dgFmt;
   num('fitMode', 0, 2); o.fitMode = Math.round(o.fitMode);
+  if (Array.isArray(v.ist))   o.ist   = v.ist.filter(x=>x && typeof x==='object' && x.k).slice(-80);
+  if (Array.isArray(v.recon)) o.recon = v.recon.filter(x=>x && isFinite(x.broker) && isFinite(x.app)).slice(-40);
+  const uv=Number(v.ultimaVerif); if (isFinite(uv) && uv>0) o.ultimaVerif=uv;
   return o;
 }
 let S = { settings:{...DEF}, current:null, sessions:[], dayMeta:{} };
@@ -1740,6 +1761,137 @@ function btnFix(cheie, etichetaCalm, etichetaArmat, latime){
          (armat ? etichetaArmat : etichetaCalm) + `</button>`;
 }
 
+/* ============================================================
+   JURNALUL SCHIMBĂRILOR, RECONCILIEREA ȘI VERIFICAREA PERIODICĂ
+   Trei lucruri care previn, nu repară. Toate stau în setări, deci
+   se sincronizează odată cu ele.
+   ============================================================ */
+const URMARITE = {
+  cap:     { nume:'Capital',            fmt:v=>money(v) },
+  payout:  { nume:'Payout',             fmt:v=>pct(v,1) },
+  N:       { nume:'Tranzacții',         fmt:v=>String(v) },
+  K:       { nume:'Câștiguri necesare', fmt:v=>String(v) },
+  slPct:   { nume:'Stop loss',          fmt:v=>pct(v,1) },
+  slMode:  { nume:'Mod stop loss',      fmt:v=>v==='stop'?'oprește':'avertizează' },
+  minStake:{ nume:'Miză minimă',        fmt:v=>money(v) },
+  cur:     { nume:'Monedă',             fmt:v=>String(v) }
+};
+const MAX_IST = 80;
+const FEREASTRA_UNIRE = 90000;     // apăsări pe +/− la câteva secunde una de alta = o schimbare
+
+function instantaneuSetari(){
+  const o={}; for (const k in URMARITE) o[k]=S.settings[k];
+  return o;
+}
+function noteazaSchimbarile(inainte){
+  if (!inainte) return;
+  const ist = Array.isArray(S.settings.ist) ? S.settings.ist : [];
+  const acum = Date.now();
+  let scris=false;
+  for (const k in URMARITE){
+    const de=inainte[k], la=S.settings[k];
+    if (de===la || de==null || la==null) continue;
+    if (typeof de==='number' && typeof la==='number' && Math.abs(de-la)<1e-9) continue;
+    const ultim = ist.length ? ist[ist.length-1] : null;
+    if (ultim && ultim.k===k && acum-ultim.t < FEREASTRA_UNIRE){
+      ultim.la = la; ultim.t = acum;          // aceeași mână pe buton
+      if (typeof ultim.de==='number' && typeof ultim.la==='number' && Math.abs(ultim.de-ultim.la)<1e-9) ist.pop();
+    } else {
+      ist.push({ t:acum, k, de, la });
+    }
+    scris=true;
+  }
+  if (!scris) return;
+  while (ist.length > MAX_IST) ist.shift();
+  S.settings.ist = ist;
+  dbSet('settings', S.settings);
+  if ($('#istBox')) renderIstoric();
+}
+function renderIstoric(){
+  const box=$('#istBox'); if (!box) return;
+  const ist = Array.isArray(S.settings.ist) ? [...S.settings.ist].reverse() : [];
+  if (!ist.length){
+    box.innerHTML=`<div class="empty">Nicio schimbare înregistrată. De aici înainte, orice modificare a parametrilor apare aici, cu data.</div>`;
+    return;
+  }
+  box.innerHTML = ist.slice(0,24).map(x=>{
+    const u=URMARITE[x.k]; if (!u) return '';
+    return `<div class="ck-row"><span>${dayShort(dayKey(x.t))} ${hhmm(x.t)}</span>
+      <span class="mono">${u.nume}: ${u.fmt(x.de)} → <b>${u.fmt(x.la)}</b></span></div>`;
+  }).join('') + (ist.length>24 ? `<div class="ck-more">…și încă ${ist.length-24}</div>` : '');
+}
+
+/* ---------- reconcilierea cu brokerul ---------- */
+function renderRecon(){
+  const box=$('#reconBox'); if (!box) return;
+  const r = calc();
+  const lista = Array.isArray(S.settings.recon) ? S.settings.recon : [];
+  const ultim = lista.length ? lista[lista.length-1] : null;
+  const aici = round2(r.balance);
+  let h = `<div class="kvs">
+    <div class="kv"><div class="k">Aplicația spune</div><div class="v mono sm">${money(aici)}</div></div>
+    <div class="kv"><div class="k">Ultima potrivire</div><div class="v mono sm">${ultim ? dayShort(dayKey(ultim.t)) : '—'}</div></div>
+  </div>`;
+  if (ultim){
+    const dif = round2(ultim.broker - ultim.app);
+    const cls2 = Math.abs(dif)<=0.02 ? 'b-ok' : 'b-warn';
+    h += `<div class="banner ${cls2}" style="margin:9px 0 0"><span class="ic">${Math.abs(dif)<=0.02?'&#10003;':'&#9888;'}</span><span>`+
+      (Math.abs(dif)<=0.02
+        ? `<b>Se potrivea</b>La ${dayShort(dayKey(ultim.t))} ${hhmm(ultim.t)}, brokerul arăta ${money(ultim.broker)}, exact cât aplicația.`
+        : `<b>Diferență de ${sgn(dif)}</b>La ${dayShort(dayKey(ultim.t))} ${hhmm(ultim.t)}: brokerul ${money(ultim.broker)}, aplicația ${money(ultim.app)}. `+
+          (dif>0 ? 'Ai mai mulți bani decât crede aplicația.' : 'Ai mai puțini bani decât crede aplicația.'))+
+      `</span></div>`;
+  }
+  box.innerHTML=h;
+  const n=$('#reconNote');
+  if (n) n.innerHTML = lista.length>1
+    ? (()=>{ const a=lista[lista.length-2], b=lista[lista.length-1];
+        const da=round2(a.broker-a.app), db=round2(b.broker-b.app);
+        const misc=round2(db-da);
+        return Math.abs(misc)<=0.02
+          ? `Față de potrivirea dinainte, diferența n-a crescut. Orice s-ar fi întâmplat, s-a întâmplat înainte de ${dayShort(dayKey(a.t))}.`
+          : `Între ${dayShort(dayKey(a.t))} și ${dayShort(dayKey(b.t))}, diferența s-a mișcat cu <b>${sgn(misc)}</b>. Caută în zilele alea.`;
+      })()
+    : 'Scrie din când în când balanța reală de la broker. A doua oară încolo îți pot spune nu doar că s-a depărtat, ci și între ce date.';
+}
+function salveazaRecon(){
+  const el=$('#reconIn'); if (!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if (!isFinite(v) || v<0){ note('Scrie balanța de la broker.'); return; }
+  const aici=round2(calc().balance);
+  const lista = Array.isArray(S.settings.recon) ? S.settings.recon : [];
+  lista.push({ t:Date.now(), broker:round2(v), app:aici });
+  while (lista.length>40) lista.shift();
+  S.settings.recon=lista; dbSet('settings',S.settings);
+  el.value='';
+  renderRecon();
+  const dif=round2(v-aici);
+  note(Math.abs(dif)<=0.02 ? 'Se potrivesc.' : 'Diferență de '+sgn(dif)+'. Vezi verificarea datelor.');
+}
+
+/* ---------- verificarea care se face singură ---------- */
+const SAPTAMANA = 7*24*3600*1000;
+let semnalProbleme = null;
+function verificarePeriodica(){
+  if (!S.sessions.length) return;
+  const ultima = Number(S.settings.ultimaVerif)||0;
+  if (Date.now()-ultima < SAPTAMANA) return;
+  setTimeout(()=>{                       // după ce s-a desenat ecranul, nu în locul lui
+    try{
+      const c=dataCheck();
+      S.settings.ultimaVerif = Date.now(); dbSet('settings', S.settings);
+      const n = c.dups.length + c.breaks.length + c.badEnds.length + (Math.abs(c.ghost)>0.02?1:0);
+      semnalProbleme = n ? n : null;
+      pictSemnal();
+      if (n) note(plural(n,'lucru de verificat în evidență','lucruri de verificat în evidență'));
+    }catch(e){}
+  }, 1200);
+}
+function pictSemnal(){
+  const b=document.querySelector('nav button[data-t="c"]');
+  if (b) b.classList.toggle('semn', !!semnalProbleme);
+}
+
 function renderCheck(){
   const box=$('#checkBox'); if (!box) return;
   if (!checkRes){ box.innerHTML=''; return; }
@@ -2550,7 +2702,8 @@ function switchTab(t){
   if (t==='j') renderJournal();
   if (t==='z') renderDays();
   if (t==='m') renderSimulare();
-  if (t==='c') renderFit();
+  if (t==='c'){ renderFit(); renderRecon(); renderIstoric();
+    semnalProbleme=null; pictSemnal(); }
   try{ window.scrollTo(0,0); }catch(e){}
 }
 let wipeArm=false, capArm=false, capArmTimer=null;
@@ -2695,6 +2848,7 @@ const ACTS = {
   toggleSess:(el)=>{ const i=Number(el.dataset.i);
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
+  recon: salveazaRecon,
   fix:(el)=>{
     const k=el.dataset.k;
     if (repairArm!==k){                        // prima apăsare doar armează
@@ -2757,7 +2911,9 @@ document.addEventListener('click', function(e){
   const fn = ACTS[t.dataset.act];
   if (!fn) return;
   e.preventDefault();
+  const inainte = instantaneuSetari();
   try{ fn(t); }catch(err){ showErr('ac\u021biune '+t.dataset.act, err&&err.message||String(err)); }
+  try{ noteazaSchimbarile(inainte); }catch(err){}
 }, true);
 
 const SETTINGS_MAP = {
@@ -2786,10 +2942,13 @@ document.addEventListener('change', function(e){
   }
   if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
   const [key,xf]=SETTINGS_MAP[el.id];
+  const inainte = instantaneuSetari();
   try{
     const v=xf(el.value); if (v===null){ renderSettings(); return note('Valoare invalid\u0103'); }
     if (S.settings[key] === v) return;                        // nothing actually changed
-    S.settings[key]=v; dbSet('settings',S.settings); render();
+    S.settings[key]=v; dbSet('settings',S.settings);
+    try{ noteazaSchimbarile(inainte); }catch(err){}
+    render();
   }catch(err){ showErr('setare '+el.id, err&&err.message||String(err)); }
 }, true);
 
@@ -3053,9 +3212,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 48 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 49 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 48 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 49 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
@@ -3169,6 +3328,7 @@ render();   // paint immediately with defaults / localStorage
   render();
 
   ready=true;
+  verificarePeriodica();       // o dată pe săptămână, pe tăcute
   initFirebase();              // cloud is optional: the app is already usable
 })();
 
