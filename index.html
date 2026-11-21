@@ -430,6 +430,15 @@ svg{display:block;width:100%;height:auto}
 }
 @media (max-width:899px){ .keys{display:none} }
 
+/* Sub pragul de două coloane, obiectivul zilei coboară la capătul paginii:
+   când fereastra e îngustă vrei întâi miza și ținta sesiunii, nu progresul zilei.
+   Flex pe coloană se poartă ca blocul obișnuit, dar îmi dă „order". */
+@media (max-width:1099px){
+  section#tab-s.on{display:flex;flex-direction:column}
+  section#tab-s.on > *{order:1}
+  section#tab-s.on > #dayGoalCard{order:9}
+}
+
 /* două coloane de carduri când ecranul permite */
 @media (min-width:1100px){
   section#tab-s.on,section#tab-j.on,section#tab-a.on{
@@ -458,6 +467,7 @@ svg{display:block;width:100%;height:auto}
     <button data-t="z" data-act="tab">Zi</button>
     <button data-t="j" data-act="tab">Jurnal</button>
     <button data-t="a" data-act="tab">Analiză</button>
+    <button data-t="k" data-act="tab">Compounder</button>
     <button data-t="c" data-act="tab">Setări</button>
 </nav>
 </div></header>
@@ -642,6 +652,27 @@ svg{display:block;width:100%;height:auto}
 </section>
 
 <!-- ================= SETĂRI ================= -->
+<section id="tab-k">
+  <div class="card">
+    <h2>Compounder</h2>
+    <div class="note" style="margin:0 0 11px">Dacă în fiecare zi scoți același procent și îl lași în cont, unde ajungi după un număr de zile.</div>
+    <div class="grid">
+      <div class="fld"><label>Capital inițial</label><input id="cmCap" inputmode="decimal" autocomplete="off" data-act="cmIn" data-f="cap"></div>
+      <div class="fld"><label>Câștig pe sesiune %</label><input id="cmGain" inputmode="decimal" autocomplete="off" data-act="cmIn" data-f="gain"></div>
+      <div class="fld"><label>Sesiuni pe zi</label><input id="cmSess" inputmode="decimal" autocomplete="off" data-act="cmIn" data-f="sess"></div>
+      <div class="fld"><label>Câte zile</label><input id="cmZile" inputmode="decimal" autocomplete="off" data-act="cmIn" data-f="zile"></div>
+    </div>
+    <button class="btn btn-g" data-act="cmIa" style="width:100%;margin-bottom:11px">Ia balanța și ținta din aplicație</button>
+    <div id="cmSum"></div>
+    <div class="note" id="cmNote" style="margin-top:9px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Zi cu zi</h2>
+    <div class="scroll"><table class="tbl" id="cmTbl"></table></div>
+  </div>
+</section>
+
 <section id="tab-c">
   <div class="card">
     <h2>Parametri</h2>
@@ -2438,6 +2469,69 @@ function clockCharts(){
   $('#weekNote').innerHTML = clockNote(c.sapt, c.rate, be, b=>'Săptămâna '+(b.k+1)+' a lunii', 'săptămână');
 }
 
+/* ============================================================
+   COMPOUNDER
+   Tabelul de capitalizare: dacă în fiecare zi scoți același procent
+   și îl lași în cont, unde ajungi după N zile. Aceleași formule ca
+   în foaia de calcul: câștigul zilei se calculează din balanța de
+   la începutul zilei, nu din capitalul inițial.
+   ============================================================ */
+const COMP_DEF = { cap:null, gain:3, sess:1, zile:30 };
+let comp = null;
+
+function compInit(){
+  if (!comp){
+    comp = { ...COMP_DEF };
+    comp.cap = round2(calc().balance) || 535;
+  }
+  return comp;
+}
+function compRanduri(){
+  const c=compInit();
+  const zi = (Number(c.gain)||0) * (Number(c.sess)||0) / 100;   // procentul total pe zi
+  const out=[]; let bal=Number(c.cap)||0, tot=0;
+  const n=Math.max(1, Math.min(365, Math.round(Number(c.zile)||0)));
+  for (let i=1;i<=n;i++){
+    const castig = bal*zi;
+    tot += castig; bal += castig;
+    out.push({ zi:i, castig, tot, bal });
+  }
+  return { randuri:out, procentZi:zi, start:Number(c.cap)||0 };
+}
+
+function renderComp(){
+  const c=compInit(), r=compRanduri();
+  const set=(id,v)=>{ const e=$(id); if (e && document.activeElement!==e) e.value=v; };
+  set('#cmCap', c.cap); set('#cmGain', c.gain); set('#cmSess', c.sess); set('#cmZile', c.zile);
+
+  const ultim = r.randuri[r.randuri.length-1];
+  const profit = ultim ? ultim.tot : 0;
+  const ori = r.start>0 && ultim ? ultim.bal/r.start : 0;
+  $('#cmSum').innerHTML = `<div class="grid">
+    <div class="kv"><div class="k">Creștere pe zi</div><div class="v mono sm">${pct(r.procentZi,2)}
+      <span class="eur">${c.sess>1?c.sess+' sesiuni × '+pct((Number(c.gain)||0)/100,2):'o sesiune pe zi'}</span></div></div>
+    <div class="kv"><div class="k">Balanță după ${r.randuri.length} ${r.randuri.length===1?'zi':'zile'}</div>
+      <div class="v mono sm">${money(round2(ultim?ultim.bal:r.start))}</div></div>
+    <div class="kv"><div class="k">Profit total</div><div class="v mono sm up">${sgn(round2(profit))}</div></div>
+    <div class="kv"><div class="k">De câte ori crește</div><div class="v mono sm">${ori?ori.toFixed(2)+'×':'—'}</div></div>
+  </div>`;
+
+  let h=`<thead><tr><th>Ziua</th><th>Câștigul zilei</th><th>Total strâns</th><th>Balanță</th></tr></thead><tbody>`;
+  for (const x of r.randuri){
+    h+=`<tr><td class="muted">${x.zi}</td>
+        <td class="mono up">${sgn(round2(x.castig))}</td>
+        <td class="mono">${sgn(round2(x.tot))}</td>
+        <td class="mono"><b>${money(round2(x.bal))}</b></td></tr>`;
+  }
+  $('#cmTbl').innerHTML = h+'</tbody>';
+
+  const miza = r.start>0 ? r.start*(Number(c.gain)||0)/100 : 0;
+  $('#cmNote').innerHTML =
+    `Câștigul fiecărei zile se calculează din balanța de la începutul <b>acelei</b> zile, nu din capitalul inițial — de asta cifrele cresc din ce în ce mai repede. `+
+    `În prima zi ${pct(r.procentZi,2)} înseamnă ${money(round2(r.start*r.procentZi))}; în ultima, ${money(round2(ultim?ultim.bal-ultim.castig:0))} × ${pct(r.procentZi,2)} = ${money(round2(ultim?ultim.castig:0))}. `+
+    `<b>Tabelul presupune că fiecare zi iese exact pe plan.</b> În realitate o zi pierdută nu doar că lipsește din șir, ci mută tot ce urmează mai jos.`;
+}
+
 function renderAnalysis(){
   const st=S.settings, be=breakEven(st.payout);
   const avail = monthsWithData();
@@ -2824,6 +2918,7 @@ function switchTab(t){
   if (t==='a') renderAnalysis();
   if (t==='j') renderJournal();
   if (t==='z') renderDays();
+  if (t==='k') renderComp();
   if (t==='c'){ renderFit(); renderRecon(); renderIstoric();
     semnalProbleme=null; pictSemnal(); }
   try{ window.scrollTo(0,0); }catch(e){}
@@ -2966,6 +3061,11 @@ const ACTS = {
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
   recon: salveazaRecon,
+  cmIa: ()=>{
+    const r=calc();
+    comp = { ...compInit(), cap:round2(r.balance), gain:round2(r.sessionGain*100) };
+    renderComp(); note('Luat din aplicație: '+money(comp.cap)+' · '+pct(r.sessionGain,2)+' pe sesiune');
+  },
   dgNotif: cereNotificari,
   istGol: ()=>{
     if (!istArm){ istArm=true; renderIstoric();
@@ -3062,6 +3162,18 @@ const SETTINGS_MAP = {
   dgVal:['dgVal', v=>{ const n=parseBani(v); return isFinite(n)?n:null; }],
   dgFmt:['dgFmt', v=>v],
 };
+document.addEventListener('input', function(e){
+  const el=e.target;
+  if (!el || !el.dataset || el.dataset.act!=='cmIn') return;
+  const f=el.dataset.f, v=parseBani(el.value);
+  compInit();
+  if (f==='cap')  comp.cap  = (isFinite(v)&&v>0) ? v : 0;
+  if (f==='gain') comp.gain = isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
+  if (f==='sess') comp.sess = isFinite(v) ? Math.max(0, Math.min(50, Math.round(v))) : 0;
+  if (f==='zile') comp.zile = isFinite(v) ? Math.max(1, Math.min(365, Math.round(v))) : 1;
+  renderComp();
+}, true);
+
 document.addEventListener('change', function(e){
   const el=e.target;
   if (el && el.dataset && el.dataset.day && el.dataset.field){
@@ -3342,9 +3454,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 60 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 62 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 60 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 62 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
