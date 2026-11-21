@@ -436,12 +436,12 @@ svg{display:block;width:100%;height:auto}
 :root[data-design="certificat"]{
   --bg:#F4EFE2; --panel:#FAF6EC; --panel2:#EDE6D6; --line:#D9CFB8;
   --txt:#1A1A18; --dim:#4A453C; --faint:#6B6457;
-  --win:#2F5D3F; --loss:#7B2231; --warn:#7A5410; --accent:#7B2231;
-  --win-v:#2F5D3F; --loss-v:#9B2B3C; --warn-v:#9A6A14;
+  --win:#00702F; --loss:#C2001A; --warn:#805900; --accent:#7B2231;
+  --win-v:#008F3C; --loss-v:#FA0021; --warn-v:#A37200;
   --on-solid:#F4EFE2;
-  --win-bg:rgba(47,93,63,.12);  --win-br:rgba(47,93,63,.36);
-  --loss-bg:rgba(123,34,49,.11); --loss-br:rgba(123,34,49,.36);
-  --warn-bg:rgba(122,84,16,.11); --warn-br:rgba(122,84,16,.32);
+  --win-bg:rgba(0,143,60,.14);  --win-br:rgba(0,143,60,.44);
+  --loss-bg:rgba(250,0,33,.12);  --loss-br:rgba(250,0,33,.42);
+  --warn-bg:rgba(163,114,0,.13); --warn-br:rgba(163,114,0,.40);
   --acc-bg:rgba(123,34,49,.10);  --acc-br:rgba(123,34,49,.30);
   --hair:rgba(26,26,24,.14); --press:rgba(26,26,24,.06);
   --neutral-bg:rgba(107,100,87,.16);
@@ -2566,9 +2566,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 42 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 43 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 42 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 43 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
