@@ -217,14 +217,18 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .grp{border:1px solid var(--line);border-radius:12px;margin-bottom:9px;overflow:hidden;background:var(--panel2)}
 .grp>.hd2{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
 .grp>.hd2:active{background:var(--press)}
-.grp .caret{flex:0 0 11px;color:var(--faint);font-size:11px;transition:transform .15s;line-height:1}
-.grp.open .caret{transform:rotate(90deg)}
-.grp .ttl{flex:1;min-width:0}
-.grp .ttl b{display:block;font-size:14px;font-weight:600}
-.grp .ttl span:not(.pill){font-size:11.5px;color:var(--faint)}
-.grp .amt2{font-weight:700;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-.grp .body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
-.grp.open .body{display:block}
+/* Grupurile se cuibăresc acum (lună > zi), deci toate regulile de
+   deschidere trebuie să privească doar copilul direct. Cu selector de
+   descendent, o lună deschisă ar forța deschise și toate zilele din ea,
+   iar apăsarea pe o zi n-ar mai avea niciun efect vizibil. */
+.grp>.hd2 .caret{flex:0 0 11px;color:var(--faint);font-size:11px;transition:transform .15s;line-height:1}
+.grp.open>.hd2 .caret{transform:rotate(90deg)}
+.grp>.hd2 .ttl{flex:1;min-width:0}
+.grp>.hd2 .ttl b{display:block;font-size:14px;font-weight:600}
+.grp>.hd2 .ttl span:not(.pill){font-size:11.5px;color:var(--faint)}
+.grp>.hd2 .amt2{font-weight:700;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp>.body{display:none;border-top:1px solid var(--line);padding:4px 12px 10px}
+.grp.open>.body{display:block}
 .grp.luna{background:var(--panel);border-color:var(--line)}
 .grp.luna>.hd2{padding:13px 13px}
 .grp.luna>.hd2 .ttl b{font-size:15px;letter-spacing:-.01em}
@@ -1533,6 +1537,7 @@ function renderDays(){
    RENDER — journal
    ============================================================ */
 const openDays = new Set(), openSess = new Set(), openMonths = new Set();
+let luniPornite = false;      // luna recentă se deschide o singură dată, la prima intrare
 const SLBL = { target:['ȚINTĂ','w'], stopped:['STOP','l'], liquidated:['LIQ','l'],
                exhausted:['X','l'], closed:['MANUAL','n'] };
 
@@ -1564,7 +1569,7 @@ function renderJournal(){
     L.zile.push(d); L.pl += d.pl; L.sesiuni += d.nSessions; L.tranz += d.wins + d.losses;
   }
   const lista = [...luni.values()];
-  if (lista.length && !openMonths.size) openMonths.add(lista[0].mk);
+  if (lista.length && !luniPornite){ openMonths.add(lista[0].mk); luniPornite = true; }
 
   let h='';
   for (const L of lista){
@@ -2958,7 +2963,7 @@ const ACTS = {
     if (delArm!=='all') return arm('all', ()=>{ renderDays(); renderJournal(); renderAnalysis(); });
     disarm();
     const fb=earliestStart();
-    S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear(); openMonths.clear();
+    S.sessions=[]; S.dayMeta={}; openDays.clear(); openSess.clear(); openMonths.clear(); luniPornite=false;
     saveLog();
     const r=rebase(fb);
     note('Istoric \u0219ters' + (r && r.applied ? ' \u00b7 balan\u021b\u0103 ' + money(r.bal) : ''));
@@ -3349,9 +3354,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 51 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 52 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 51 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 52 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
