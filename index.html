@@ -203,6 +203,16 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .fit tr:active td{background:var(--press)}
 .fit tr.now td{background:var(--acc-bg)}
 .fit tr.now td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.cmp-hd{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+  font-weight:700;margin:2px 0 8px}
+.cmp{border-top:1px solid var(--hair);padding:9px 0}
+.cmp:first-of-type{border-top:0;padding-top:0}
+.cmp-k{font-size:13px;color:var(--txt);margin-bottom:6px;line-height:1.3}
+.cmp-v{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cmp-v .mono{font-family:var(--mono);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.cmp-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:7px;
+  font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.cmp-sub{font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:1px}
 .ck-row{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;align-items:baseline}
 .ck-row>span:first-child{color:var(--dim);flex:0 0 auto}
 .ck-more{margin-top:5px;font-size:11.5px;color:var(--faint)}
@@ -607,21 +617,22 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
-    <h2>Risc la rata ta actuală</h2>
+    <h2>Ce se întâmplă, în medie, într-o sesiune</h2>
     <div id="rTrunc"></div>
     <div class="grid">
-      <div class="kv"><div class="k">Așteptare / sesiune</div><div class="v mono" id="rEv">—</div></div>
-      <div class="kv"><div class="k">Sesiuni reușite</div><div class="v mono" id="rOk">—</div></div>
-      <div class="kv"><div class="k">Cea mai rea sesiune</div><div class="v mono down" id="rWorst">—</div></div>
-      <div class="kv"><div class="k">Drawdown maxim</div><div class="v mono down" id="rDd">—</div></div>
+      <div class="kv"><div class="k">Câștig mediu pe sesiune</div><div class="v mono" id="rEv">—</div></div>
+      <div class="kv"><div class="k">Șansa să atingi ținta</div><div class="v mono" id="rOk">—</div></div>
+      <div class="kv"><div class="k">Dacă iese prost, pierzi</div><div class="v mono down" id="rWorst">—</div></div>
+      <div class="kv"><div class="k">Cea mai mare scădere, până acum</div><div class="v mono down" id="rDd">—</div></div>
     </div>
-    <div class="note">Calculat prin enumerarea <b>tuturor</b> traseelor posibile de sesiune la rata ta de câștig măsurată — nu estimare.</div>
+    <div class="note" id="rExpl"></div>
+    <div class="note">Primele trei cifre nu sunt estimări: aplicația parcurge <b>fiecare</b> traseu posibil al unei sesiuni, la rata ta de câștig măsurată. A patra e din istoricul tău real.</div>
   </div>
 
   <div class="card">
     <h2>Risc de ruină</h2>
     <div class="scroll"><table class="tbl" id="ruinTbl"></table></div>
-    <div class="note">Probabilitatea de a scădea sub 10% din capital, dacă joci numărul respectiv de sesiuni la rata ta actuală. 12.000 de simulări per linie.</div>
+    <div class="note"><b>Risc de ruină</b> înseamnă șansa să ajungi sub 10% din capital dacă joci atâtea sesiuni la rata ta de acum. <b>Rezultatul median</b> e cât ți-ar rămâne în cazul din mijloc: <i>1,22×</i> înseamnă că ai ajunge la 122% din cât ai azi. 12.000 de simulări per linie.</div>
   </div>
 
   <div class="card">
@@ -642,6 +653,7 @@ svg{display:block;width:100%;height:auto}
 <section id="tab-m">
   <div class="card">
     <h2>Încearcă alți parametri</h2>
+    <div class="note" style="margin:0 0 11px">Schimbă cifrele de mai jos și vezi cum s-ar mișca riscul și câștigul, la rata ta de câștig reală. Nimic de aici nu-ți atinge setările.</div>
     <div class="grid">
       <div class="fld"><label>Tranzacții (N)</label>
         <div class="step"><button data-act="simN" data-d="-1">−</button><span id="simN">—</span><button data-act="simN" data-d="1">+</button></div>
@@ -658,21 +670,25 @@ svg{display:block;width:100%;height:auto}
     </div>
     <button class="btn btn-g" data-act="simReset" id="simReset" style="width:100%;margin-bottom:11px">Înapoi la parametrii mei</button>
     <div id="simOut"></div>
+    <div class="note" id="simExpl"></div>
     <div class="note" id="simNote"></div>
   </div>
 
   <div class="card">
     <h2>Se adună pierderile?</h2>
+    <div class="note" style="margin:0 0 9px">Toată matematica progresiei presupune că o pierdere n-o face pe următoarea mai probabilă. Aici se verifică dacă presupunerea ține la tine.</div>
     <div id="grupOut"></div>
     <div class="note" id="grupNote" style="margin-top:9px"></div>
   </div>
 
   <div class="card">
     <h2>Antrenament</h2>
+    <div class="note" style="margin:0 0 11px">Joacă sesiuni pe bani de hârtie, ca să vezi cum se simte progresia fără să riști nimic.</div>
     <div id="antrCap"></div>
     <div id="antrCorp"></div>
     <div class="grid g3" id="antrBtns"></div>
-    <div class="note">Bani de hârtie. Nu atinge jurnalul, capitalul sau sesiunea ta adevărată.</div>
+    <div id="antrSet"></div>
+    <div class="note">Bani de hârtie. Nu atinge jurnalul, capitalul sau sesiunea ta adevărată. Pornește de la balanța ta de acum, dar poți pune orice sumă.</div>
   </div>
 </section>
 
@@ -1590,7 +1606,7 @@ function renderJournal(){
     const ord = new Map(d.sessions.map((x,ix)=>[x,ix+1]));   // position within the day
     for (const sess of [...d.sessions].reverse()){
       const i = idxOf.get(sess), so = openSess.has(i);
-      const L = SLBL[sess.status] || ['?','n'];
+      const L = sess.adj ? ['AJUSTARE','n'] : (SLBL[sess.status] || ['?','n']);
       let rows='', bal = sess.start;
       (sess.trades||[]).forEach((t,ti)=>{
         bal += (t.ret!=null ? t.ret : 0);
@@ -1941,6 +1957,25 @@ function renderRecon(){
           (dif>0 ? 'Ai mai mulți bani decât crede aplicația.' : 'Ai mai puțini bani decât crede aplicația.'))+
       `</span></div>`;
   }
+  if (ultim){
+    const dif2 = round2(ultim.broker - ultim.app);
+    if (Math.abs(dif2) > 0.02){
+      const ocupat = !!((S.current&&S.current.trades||[]).length);
+      const mare = Math.abs(dif2) > Math.max(1, Math.abs(aici)*0.01);
+      if (ocupat)
+        h += `<div class="note" style="margin-top:9px">Ai o sesiune în curs. Închide-o și apoi pot alinia balanța.</div>`;
+      else {
+        h += `<button class="btn ${alinArm?'btn-l':'btn-a'}" data-act="alin" style="width:100%;margin-top:9px">`+
+             (alinArm ? 'Sigur? Apasă din nou — ajustare de '+sgn(dif2)
+                      : 'Aliniază la broker ('+sgn(dif2)+')')+`</button>`;
+        h += `<div class="note" style="margin-top:7px">`+
+             (mare
+               ? `Diferența e mare pentru o simplă rotunjire. <b>Dă întâi o verificare a evidenței</b> mai jos — dacă acolo apare ceva, repară acolo, nu aici. Alinierea ascunde problema, n-o rezolvă.`
+               : `Adaugă în jurnal un rând de ajustare de ${sgn(dif2)}, care duce balanța exact la cât arată brokerul. Nu atinge nicio sesiune și nicio miză. Diferențele mici vin de obicei din felul în care brokerul rotunjește plata.`)+
+             `</div>`;
+      }
+    }
+  }
   box.innerHTML=h;
   const n=$('#reconNote');
   if (n) n.innerHTML = lista.length>1
@@ -1953,6 +1988,33 @@ function renderRecon(){
       })()
     : 'Scrie din când în când balanța reală de la broker. A doua oară încolo îți pot spune nu doar că s-a depărtat, ci și între ce date.';
 }
+/* Alinierea la broker nu înseamnă „scrie altă cifră în capital". Ar rupe
+   lanțul: ultima sesiune s-ar termina într-un loc, iar următoarea ar porni
+   din altul. Adăugăm în schimb un rând de ajustare, fără tranzacții, care
+   duce balanța de unde era până unde zice brokerul — se vede în jurnal și
+   lanțul rămâne continuu. */
+let alinArm = false, alinTimer = null;
+function alinieazaLaBroker(){
+  const lista = Array.isArray(S.settings.recon) ? S.settings.recon : [];
+  const ultim = lista.length ? lista[lista.length-1] : null;
+  if (!ultim){ note('Scrie întâi balanța de la broker.'); return; }
+  if ((S.current&&S.current.trades||[]).length){
+    note('Ai o sesiune în curs — închide-o întâi.'); return;
+  }
+  const ses=[...S.sessions].sort((a,b)=>a.date-b.date);
+  const de = ses.length ? round4(ses[ses.length-1].end) : round4(S.settings.cap);
+  const la = round2(ultim.broker);
+  const dif = round4(la-de);
+  if (Math.abs(dif) <= 0.005){ note('Se potrivesc deja.'); return; }
+  S.sessions.push({ n:sessionsToday()+1, date:Date.now(), start:de, end:la,
+                    wins:0, losses:0, status:'closed', adj:true, trades:[] });
+  S.settings.cap = la;
+  S.current = { startBalance:la, trades:[], n:sessionsToday()+1 };
+  saveLog(); dbSet('settings',S.settings); dbSet('current',S.current);
+  render();
+  note('Ajustare de '+sgn(dif)+' adăugată în jurnal. Balanța e acum '+money(la));
+}
+
 function salveazaRecon(){
   const el=$('#reconIn'); if (!el) return;
   const v=parseBani(el.value);
@@ -2343,28 +2405,52 @@ function renderSim(){
   if (simCfg.K>=simCfg.N){ $('#simOut').innerHTML=`<div class="empty">Câștigurile necesare trebuie să fie mai puține decât tranzacțiile.</div>`; return; }
   const acum = simRezultate({ N:st.N, K:st.K, payout:st.payout, p:simCfg.p });
   const nou  = simRezultate(simCfg);
-  const linie=(nume, a, b, fmt, bun)=>{
+  const bal = round2(calc().balance);
+  const P=(v,z)=>pct(v,z==null?1:z);
+  /* sub fiecare procent punem ce înseamnă în bani, la balanța de acum */
+  /* Etichetele în cuvinte întregi nu încap într-un tabel de trei coloane pe
+     telefon, așa că fiecare rând devine un bloc: numele sus, cele două valori
+     dedesubt, una lângă alta. */
+  const linie=(nume, a, b, fmt, bun, sub)=>{
     const dif = b-a;
     const sem = Math.abs(dif)<1e-9 ? '' : (bun(dif) ? 'up' : 'down');
-    return `<tr><td class="muted">${nume}</td><td class="mono">${fmt(a)}</td>
-      <td class="mono ${sem}">${fmt(b)}</td></tr>`;
+    const jos = v => sub ? `<div class="cmp-sub">${sub(v)}</div>` : '';
+    return `<div class="cmp">
+      <div class="cmp-k">${nume}</div>
+      <div class="cmp-v">
+        <div><div class="mono">${fmt(a)}</div>${jos(a)}</div>
+        <div><div class="mono ${sem}">${fmt(b)}</div>${jos(b)}</div>
+      </div></div>`;
   };
-  const P=(v,z)=>pct(v,z==null?1:z);
-  $('#simOut').innerHTML = `<table class="tbl">
-    <thead><tr><th>La rata ta de ${pct(simCfg.p,2)}</th><th>acum</th><th>simulat</th></tr></thead><tbody>
-    ${linie('Prag de rentabilitate', acum.be, nou.be, v=>P(v,2), d=>d<0)}
-    ${linie('Câștig mediu / sesiune', acum.d.ev, nou.d.ev, v=>(v>0?'+':'')+(v*100).toFixed(3)+'%', d=>d>0)}
-    ${linie('Șansa să atingi ținta', acum.d.okProb, nou.d.okProb, v=>P(v), d=>d>0)}
-    ${linie('Cel mai prost caz', acum.d.worst-1, nou.d.worst-1, v=>P(v), d=>d>0)}
-    ${linie('Risc de ruină, 100 sesiuni', acum.r100.ruin, nou.r100.ruin, v=>P(v), d=>d<0)}
-    ${linie('Risc de ruină, 500 sesiuni', acum.r500.ruin, nou.r500.ruin, v=>P(v), d=>d<0)}
-    ${linie('Rezultat median, 100 sesiuni', acum.r100.med, nou.r100.med, v=>v<0.01?'0':v.toFixed(2)+'×', d=>d>0)}
-    </tbody></table>`;
+  const euro = v => (v>0?'+':'') + money(round2(v*bal));
+  const unaDin = v => (v>0 && v<1) ? '1 din ' + Number(Math.round(1/(1-v))).toLocaleString('ro-RO') : '—';
+  $('#simOut').innerHTML = `<div class="cmp-hd">La rata ta de câștig, ${pct(simCfg.p,2)}</div>
+    <div class="cmp-cols"><div>parametrii tăi</div><div>cei simulați</div></div>
+    ${linie('Cât trebuie să câștigi ca să nu pierzi', acum.be, nou.be, v=>P(v,2), d=>d<0,
+            v=>'din tranzacții')}
+    ${linie('Câștig mediu pe sesiune', acum.d.ev, nou.d.ev, v=>(v>0?'+':'')+(v*100).toFixed(3)+'%', d=>d>0, euro)}
+    ${linie('Șansa să atingi ținta', acum.d.okProb, nou.d.okProb, v=>P(v), d=>d>0, unaDin)}
+    ${linie('Dacă iese prost, pierzi', acum.d.worst-1, nou.d.worst-1, v=>P(v), d=>d>0, euro)}
+    ${linie('Riscul să rămâi aproape fără bani, în 100 de sesiuni', acum.r100.ruin, nou.r100.ruin, v=>P(v), d=>d<0,
+            v=>'adică sub '+money(round2(bal*0.1)))}
+    ${linie('Același risc, în 500 de sesiuni', acum.r500.ruin, nou.r500.ruin, v=>P(v), d=>d<0, null)}
+    ${linie('Unde ajungi, în cazul din mijloc, după 100', acum.r100.med, nou.r100.med,
+            v=>v<0.01?'0':v.toFixed(2)+'×', d=>d>0, v=>money(round2(v*bal)))}`;
   const taiat = acum.taiat || nou.taiat;
   $('#simOut').innerHTML = (taiat ? `<div class="banner b-warn" style="margin:0 0 9px"><span class="ic">&#9888;</span>
       <span><b>Cifre aproximative</b>La ${nou.taiat?'parametrii simulați':'parametrii tăi'} sunt prea multe traiectorii ca să le parcurg pe toate,
       așa că am oprit numărătoarea după 400.000. Diferența e mică, dar rândurile de mai jos nu mai sunt exacte.</span></div>` : '')
     + $('#simOut').innerHTML;
+  $('#simExpl').innerHTML = (()=>{
+    const d=nou.d;
+    if (!(d.okProb>0 && d.okProb<1)) return '';
+    const n=Math.round(1/(1-d.okProb));
+    return `<b>Pe scurt, cu parametrii simulați:</b> din fiecare ${nr(n)}sesiuni, cam `+
+      `${Number(n-1).toLocaleString('ro-RO')} ating ținta și îți aduc câte ${money(round2(d.ev*bal))} în medie; `+
+      `una singură merge prost și poate lua tot contul. Coloana din dreapta e colorată `+
+      `<span class="up">verde</span> când e mai bună decât ce ai acum și `+
+      `<span class="down">roșie</span> când e mai proastă.`;
+  })();
   $('#simNote').innerHTML = (real
       ? `Rata de ${pct(real.rate,2)} vine din toate cele ${nr(real.n)}tranzacții din istoricul tău, aceeași pe care o vezi în Analiză. `
       : `N-ai încă tranzacții înregistrate, așa că rata e doar o presupunere. `)
@@ -2426,10 +2512,14 @@ function renderGrupare(){
   const probSerie=mai/dist.length;
 
   box.innerHTML=`<div class="kvs">
-    <div class="kv"><div class="k">Serii observate</div><div class="v mono sm">${t.R}</div></div>
-    <div class="kv"><div class="k">Serii așteptate</div><div class="v mono sm">${t.E.toFixed(1)}</div></div>
-    <div class="kv"><div class="k">Cea mai lungă serie de pierderi</div><div class="v mono sm">${maxObs}</div></div>
-    <div class="kv"><div class="k">Cât ar fi din hazard, de obicei</div><div class="v mono sm">până în ${pct95}</div></div>
+    <div class="kv"><div class="k">Câte șiruri ai avut</div><div class="v mono sm">${t.R}
+      <span class="eur">de câștiguri sau pierderi la rând</span></div></div>
+    <div class="kv"><div class="k">Câte ar fi dat hazardul</div><div class="v mono sm">${t.E.toFixed(0)}
+      <span class="eur">dacă n-ar exista nicio legătură</span></div></div>
+    <div class="kv"><div class="k">Cea mai lungă serie de pierderi</div><div class="v mono sm">${maxObs}
+      <span class="eur">la rând, în tot istoricul</span></div></div>
+    <div class="kv"><div class="k">Cât de lungă ar fi, din noroc</div><div class="v mono sm">până în ${pct95}
+      <span class="eur">în 19 cazuri din 20</span></div></div>
   </div>`;
 
   const mic = t.n < PRAG_SERII;
@@ -2456,7 +2546,20 @@ function renderGrupare(){
 let antr = null;
 function antrInit(){
   const st=S.settings;
-  if (!antr) antr = { bal:1000, N:st.N, K:st.K, payout:st.payout, trades:[], sesiuni:0, pornit:1000 };
+  if (!antr){
+    /* pornim de la cât ai tu acum, nu de la o sumă rotundă inventată:
+       așa cifrele de pe ecran seamănă cu cele cu care ești obișnuit */
+    const start = round2(calc().balance) || 1000;
+    antr = { bal:start, N:st.N, K:st.K, payout:st.payout, trades:[], sesiuni:0, pornit:start };
+  }
+}
+function antrSetBani(){
+  const el=$('#antrIn'); if (!el) return;
+  const v=parseBani(el.value);
+  if (!isFinite(v) || v<=0 || v>1e9){ note('Scrie o sumă, de exemplu 1.000'); return; }
+  antr = { bal:round2(v), N:S.settings.N, K:S.settings.K, payout:S.settings.payout,
+           trades:[], sesiuni:0, pornit:round2(v) };
+  el.value=''; renderAntr(); note('Antrenament pornit de la '+money(round2(v)));
 }
 function antrCalc(){
   antrInit();
@@ -2523,6 +2626,9 @@ function renderAntr(){
         <span><b>${cum}</b>${sgn(round2(r.pl))} în sesiunea asta.</span></div>
       <button class="btn btn-a" data-act="antrNoua" style="width:100%">Sesiune nouă</button>`;
   }
+  $('#antrSet').innerHTML = `<div class="fld" style="margin:10px 0 0"><label>Pornește de la ce sumă vrei</label>
+      <div class="row2"><input id="antrIn" inputmode="decimal" placeholder="de ex. 1.000 sau ${money(antr.pornit).replace(/^[^\d]*/,'')}">
+        <button class="btn btn-g" data-act="antrBani">Repornește</button></div></div>`;
   $('#antrBtns').innerHTML=`
     <button class="btn btn-g" data-act="antrAuto">Joacă singur</button>
     <button class="btn btn-g" data-act="antrSterge"${antr.trades.length?'':' disabled'}>Șterge ultima</button>
@@ -2594,10 +2700,35 @@ function renderAnalysis(){
     ? `<div class="banner b-warn" style="margin:0 0 9px"><span class="ic">&#9888;</span>
        <span><b>Cifre aproximative</b>La ${st.N} tranzacții cu ${st.K} câștiguri sunt prea multe traiectorii
        ca să le pot parcurge pe toate. Valorile de mai jos sunt apropiate, nu exacte.</span></div>` : '';
-  $('#rEv').innerHTML=`<span class="${cls(d.ev)}">${(d.ev>0?'+':'')+(d.ev*100).toFixed(3)}%</span>`;
-  $('#rOk').textContent=pct(d.okProb,1);
-  $('#rWorst').textContent=pct(d.worst-1,1);
-  $('#rDd').textContent=m.nSessions?pct(-m.dd,1):'—';
+  const balAcum = round2(calc().balance);
+  $('#rEv').innerHTML=`<span class="${cls(d.ev)}">${(d.ev>0?'+':'')+(d.ev*100).toFixed(3)}%</span>`+
+    `<span class="eur ${cls(d.ev)}">${d.ev>0?'+':''}${money(round2(d.ev*balAcum))}</span>`;
+  /* nr() adaugă „de" pentru acordul cu un substantiv („693 de sesiuni"),
+     dar aici urmează un verb, deci avem nevoie de cifra goală */
+  const cifra = v => Number(v).toLocaleString('ro-RO');
+  $('#rOk').innerHTML = pct(d.okProb,1) +
+    (d.okProb<1 && d.okProb>0
+      ? `<span class="eur">1 din ${cifra(Math.round(1/(1-d.okProb)))} iese prost</span>` : '');
+  $('#rWorst').innerHTML = pct(d.worst-1,1) +
+    `<span class="eur down">${money(round2((d.worst-1)*balAcum))}</span>`;
+  $('#rDd').innerHTML = m.nSessions ? pct(-m.dd,1) : '—';
+
+  /* Cifrele singure induc în eroare: 99,9% pare extraordinar lângă −100%,
+     deși exact asta e forma unei progresii — câștiguri mici aproape mereu,
+     o pierdere totală rară. Spunem ce înseamnă împreună. */
+  $('#rExpl').innerHTML = (()=>{
+    if (!(d.okProb>0 && d.okProb<1)) return '';
+    const unaDin = Math.round(1/(1-d.okProb));
+    const castig = round2(d.ev*balAcum);
+    const pierdut = round2((d.worst-1)*balAcum);
+    return `<b>Cum se citesc împreună:</b> din fiecare ${nr(unaDin)}sesiuni, cam ${cifra(unaDin-1)} `+
+      `ating ținta și îți aduc puțin; una singură merge prost și, în cel mai rău caz, îți ia tot contul `+
+      `(${money(Math.abs(pierdut))} la balanța de acum). `+
+      `Media de ${(d.ev*100).toFixed(3)}% pe sesiune e ce rămâne după ce ambele se adună. `+
+      (d.ev>0
+        ? `E pozitivă, dar subțire: ${money(Math.abs(castig))} pe sesiune. De asta contează numărul de sesiuni mai jos.`
+        : `E <b>negativă</b>, adică pe termen lung sistemul pierde oricât de multe sesiuni reușite ai la rând.`);
+  })();
 
   const rc = ruinCurve(d, [20,50,100,200], 12000);
   let h=`<thead><tr><th>Sesiuni</th><th>Risc de ruină</th><th>Rezultat median</th></tr></thead><tbody>`;
@@ -2967,7 +3098,7 @@ const ACTS = {
   simPay:(el)=>{ simInit(); simCfg.payout=Math.max(.5,Math.min(2,round2(simCfg.payout+ +el.dataset.d*0.01))); renderSim(); },
   simRate:(el)=>{ simInit(); simCfg.p=Math.max(.2,Math.min(.95,Math.round((simCfg.p+ +el.dataset.d*0.005)*1000)/1000)); renderSim(); },
   simReset:()=>{ const st=S.settings; simInit(); simCfg.N=st.N; simCfg.K=st.K; simCfg.payout=st.payout; renderSim(); },
-  antrW:()=>antrTrade('W'), antrL:()=>antrTrade('L'),
+  antrW:()=>antrTrade('W'), antrL:()=>antrTrade('L'), antrBani: antrSetBani,
   antrNoua, antrSterge, antrReset, antrAuto,
   win:()=>addTrade('W'), loss:()=>addTrade('L'),
   undo, reset:resetSession, log:()=>logSession(false), closeEarly:()=>logSession(true),
@@ -3041,6 +3172,12 @@ const ACTS = {
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
   recon: salveazaRecon,
+  alin: ()=>{
+    if (!alinArm){ alinArm=true; renderRecon();
+      clearTimeout(alinTimer); alinTimer=setTimeout(()=>{ alinArm=false; renderRecon(); },4000); return; }
+    clearTimeout(alinTimer); alinArm=false;
+    alinieazaLaBroker(); renderRecon();
+  },
   fix:(el)=>{
     const k=el.dataset.k;
     if (repairArm!==k){                        // prima apăsare doar armează
@@ -3405,9 +3542,9 @@ function renderSync(){
 
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 54 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 57 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 54 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 57 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
