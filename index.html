@@ -2899,9 +2899,17 @@ function renderFit(){
          `<td class="mono up">${r.b.gain>=1e-6?'+':''}${pct(r.b.gain)}`+
            `<span class="eur">${r.b.gain>=1e-6?'+':''}${money(round2(r.b.gain*bal))}</span></td></tr>`;
   }
-  $('#fitBox').innerHTML = h+'</tbody></table>';
-  const nowRow = $('#fitBox').querySelector('tr.now');
-  if (nowRow) try{ nowRow.scrollIntoView({block:'nearest'}); }catch(e){}
+  const cutie = $('#fitBox');
+  cutie.innerHTML = h+'</tbody></table>';
+  /* Rândul tău rămâne la vedere în tabel, dar mișcăm DOAR tabelul.
+     scrollIntoView trăgea după el și pagina, așa că la fiecare apăsare pe
+     „−" sau „+" din parametri saltul te arunca jos, la tabel. */
+  const nowRow = cutie.querySelector('tr.now');
+  if (nowRow) try{
+    const rc = cutie.getBoundingClientRect(), rr = nowRow.getBoundingClientRect();
+    if (rr.top < rc.top)            cutie.scrollTop += rr.top - rc.top;
+    else if (rr.bottom > rc.bottom) cutie.scrollTop += rr.bottom - rc.bottom;
+  }catch(e){}
 
   const hidden = rows.length - show.length;
   $('#fitNote').innerHTML =
@@ -3596,9 +3604,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 65 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 66 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 65 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 66 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
