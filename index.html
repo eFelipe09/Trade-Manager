@@ -212,6 +212,14 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .dg-bar>i.gata{background:var(--win-v)}
 .dg-bar>i.minus{background:var(--loss-v)}
 .dg-sub{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:11.5px;color:var(--dim)}
+.undobar{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:calc(78px + env(safe-area-inset-bottom));
+  z-index:60;display:flex;align-items:center;gap:9px;max-width:min(560px,calc(100vw - 24px));
+  background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:9px 11px;
+  box-shadow:0 10px 30px var(--shadow);transition:transform .25s ease;pointer-events:none}
+.undobar.on{transform:translateX(-50%) translateY(0);pointer-events:auto}
+.undobar .ub-t{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.undobar .ub-t b{color:var(--txt)}
+.undobar .btn{padding:7px 12px;font-size:12.5px;flex:0 0 auto}
 .ck-row{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;align-items:baseline}
 .ck-row>span:first-child{color:var(--dim);flex:0 0 auto}
 .ck-more{margin-top:5px;font-size:11.5px;color:var(--faint)}
@@ -806,6 +814,12 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Înapoi</h2>
+    <div id="undoBox"></div>
+    <div class="note">Fiecare ștergere, reparație, import sau aliniere îți lasă un pas înapoi. Pe calculator merge și <b>Ctrl+Z</b>, iar <b>Ctrl+Y</b> pune la loc.</div>
+  </div>
+
+  <div class="card">
     <h2>Potrivirea cu brokerul</h2>
     <div id="reconBox"></div>
     <div class="fld" style="margin:11px 0 0"><label>Balanța de la broker, acum</label>
@@ -836,6 +850,7 @@ svg{display:block;width:100%;height:auto}
 </section>
 
 </div>
+<div class="undobar" id="undoBar"></div>
 <div class="toast" id="toast"></div>
 <script>
 /* ============================================================
@@ -2200,6 +2215,108 @@ function pictSemnal(){
   if (b) b.classList.toggle('semn', !!semnalProbleme);
 }
 
+/* ============================================================
+   ÎNAPOI / ÎNAINTE
+   Ca în foile de calcul: orice acțiune care schimbă datele îți lasă
+   o cale de întoarcere. Păstrăm fotografii ale stării, nu „acțiuni
+   inverse" — mai simplu și imposibil de greșit: fie te întorci exact
+   unde erai, fie nu te întorci deloc.
+   ============================================================ */
+const MAX_PASI = 10;
+let pasiInapoi = [], pasiInainte = [];
+
+function fotografie(){
+  try{
+    return JSON.stringify({ sessions:S.sessions, settings:S.settings,
+                            current:S.current, dayMeta:S.dayMeta });
+  }catch(e){ return null; }
+}
+function aplicaFotografie(j){
+  const d = JSON.parse(j);
+  S.sessions = normSessions(d.sessions);
+  S.settings = normSettings(d.settings);
+  S.current  = normCurrent(d.current, S.settings.cap, 1);
+  S.dayMeta  = normDayMeta(d.dayMeta);
+  saveLog(); dbSet('settings', S.settings); dbSet('current', S.current);
+  render();
+}
+
+/* Primește fotografia de dinaintea schimbării, deja făcută de dispecer. */
+function pastreazaPas(eticheta, poza){
+  if (!poza || poza.length > 4e6) return;      // prea mare ca s-o ținem în memorie
+  pasiInapoi.push({ t:Date.now(), eticheta, stare:poza });
+  while (pasiInapoi.length > MAX_PASI) pasiInapoi.shift();
+  pasiInainte = [];                            // orice acțiune nouă rupe firul spre „înainte"
+  randUndo();
+  aratsBara('<b>'+eticheta+'</b> · greșit?', false);
+}
+function anuleaza(){
+  const p = pasiInapoi.pop();
+  if (!p){ note('Nu mai e nimic de anulat.'); return; }
+  const acum = fotografie();
+  if (acum) pasiInainte.push({ t:Date.now(), eticheta:p.eticheta, stare:acum });
+  try{ aplicaFotografie(p.stare); note('Am anulat: '+p.eticheta);
+       aratsBara('Am anulat <b>'+p.eticheta+'</b>', true); }
+  catch(e){ note('N-am putut anula.'); ascundeBara(); }
+  randUndo();
+}
+function refa(){
+  const p = pasiInainte.pop();
+  if (!p){ note('Nu mai e nimic de refăcut.'); return; }
+  const acum = fotografie();
+  if (acum) pasiInapoi.push({ t:Date.now(), eticheta:p.eticheta, stare:acum });
+  try{ aplicaFotografie(p.stare); note('Am refăcut: '+p.eticheta);
+       aratsBara('Am pus la loc <b>'+p.eticheta+'</b>', false); }
+  catch(e){ note('N-am putut reface.'); ascundeBara(); }
+  randUndo();
+}
+
+const ACT_PURE = new Set(['tab','toggleMonth','toggleDay','toggleSess','hourScope',
+  'anPrev','anNext','theme','themeSet','export','importToggle','importCancel',
+  'inapoi','inainteAct','runCheck','cmIa','dgNotif','fbIn','fbUp','fbOut','fbReset']);
+const ACT_NUME = {
+  win:'câștig adăugat', loss:'pierdere adăugată', undo:'ultima tranzacție ștearsă',
+  reset:'sesiune resetată', log:'sesiune închisă', closeEarly:'sesiune închisă mai devreme',
+  applyCap:'capital aplicat', delDay:'zi ștearsă', delSess:'sesiune ștearsă',
+  clearAll:'istoric șters', endDay:'zi încheiată', reopenDay:'zi redeschisă',
+  istGol:'istoric setări golit', alin:'aliniere cu brokerul', fix:'reparație',
+  import:'import de date', wipe:'ștergere totală', recon:'potrivire salvată'
+};
+let baraTimer=null;
+function aratsBara(text, cuInainte){
+  const bara=$('#undoBar'); if (!bara) return;
+  bara.innerHTML = `<span class="ub-t">${text}</span>`+
+    `<button class="btn btn-g" data-act="${cuInainte?'inainteAct':'inapoi'}">${cuInainte?'Înainte':'Înapoi'}</button>`;
+  bara.classList.add('on');
+  clearTimeout(baraTimer);
+  baraTimer = setTimeout(()=>bara.classList.remove('on'), 9000);
+}
+function ascundeBara(){ const b=$('#undoBar'); if (b){ clearTimeout(baraTimer); b.classList.remove('on'); } }
+
+function randUndo(){
+  const box=$('#undoBox');
+  if (box){
+    if (!pasiInapoi.length && !pasiInainte.length){
+      box.innerHTML = `<div class="empty">Nimic de anulat deocamdată. De aici încolo, fiecare ștergere, reparație sau import îți lasă o cale de întoarcere.</div>`;
+    } else {
+      const lista = [...pasiInapoi].reverse().slice(0,6)
+        .map(x=>`<div class="ck-row"><span>${hhmm(x.t)}</span><span>${x.eticheta}</span></div>`).join('');
+      box.innerHTML = lista + `<div class="grid" style="margin-top:10px">
+        <button class="btn btn-a" data-act="inapoi"${pasiInapoi.length?'':' disabled'}>Înapoi un pas</button>
+        <button class="btn btn-g" data-act="inainteAct"${pasiInainte.length?'':' disabled'}>Înainte</button></div>`;
+    }
+  }
+}
+
+addEventListener('keydown', e=>{
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k=(e.key||'').toLowerCase();
+  const inCamp = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target&&e.target.tagName)||'');
+  if (inCamp) return;
+  if (k==='z' && !e.shiftKey){ e.preventDefault(); anuleaza(); }
+  else if (k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); refa(); }
+});
+
 function renderCheck(){
   const box=$('#checkBox'); if (!box) return;
   if (!checkRes){ box.innerHTML=''; return; }
@@ -2503,10 +2620,23 @@ function clockCharts(){
 const COMP_DEF = { cap:null, gain:3, sess:1, zile:30 };
 let comp = null;
 
+/* Ce scrii aici rămâne scris. Compounderul e o foaie de calcul personală,
+   nu o oglindă a aplicației: dacă pui o sumă de probă, o găsești acolo și
+   mâine. Butonul „ia balanța și ținta din aplicație" e singurul lucru care
+   o suprascrie, și numai când îl apeși tu. */
+function compSalveaza(){ try{ LS.set('comp', comp); }catch(e){} }
 function compInit(){
   if (!comp){
-    comp = { ...COMP_DEF };
-    comp.cap = round2(calc().balance) || 535;
+    const z = LS.get('comp');
+    if (z && typeof z==='object' && isFinite(Number(z.cap)) && Number(z.cap) > 0){
+      comp = { cap:Number(z.cap),
+               gain: isFinite(Number(z.gain)) ? Number(z.gain) : COMP_DEF.gain,
+               sess: isFinite(Number(z.sess)) ? Number(z.sess) : COMP_DEF.sess,
+               zile: isFinite(Number(z.zile)) ? Number(z.zile) : COMP_DEF.zile };
+    } else {
+      comp = { ...COMP_DEF };
+      comp.cap = round2(calc().balance) || 535;     // prima deschidere: pornim de la balanță
+    }
   }
   return comp;
 }
@@ -3085,9 +3215,12 @@ const ACTS = {
     openSess.has(i) ? openSess.delete(i) : openSess.add(i); renderJournal(); },
   runCheck,
   recon: salveazaRecon,
+  inapoi: anuleaza,
+  inainteAct: refa,
   cmIa: ()=>{
     const r=calc();
     comp = { ...compInit(), cap:round2(r.balance), gain:round2(r.sessionGain*100) };
+    compSalveaza();
     renderComp(); note('Luat din aplicație: '+money(comp.cap)+' · '+pct(r.sessionGain,2)+' pe sesiune');
   },
   dgNotif: cereNotificari,
@@ -3166,7 +3299,11 @@ document.addEventListener('click', function(e){
   if (!fn) return;
   e.preventDefault();
   const inainte = instantaneuSetari();
+  const act = t.dataset.act;
+  let poza = null;
+  try{ if (!ACT_PURE.has(act) || ACT_NUME[act]) poza = fotografie(); }catch(err){}
   try{ fn(t); }catch(err){ showErr('ac\u021biune '+t.dataset.act, err&&err.message||String(err)); }
+  try{ if (poza && fotografie() !== poza) pastreazaPas(ACT_NUME[act] || act, poza); }catch(err){}
   try{ noteazaSchimbarile(inainte); }catch(err){}
 }, true);
 
@@ -3195,6 +3332,7 @@ document.addEventListener('input', function(e){
   if (f==='gain') comp.gain = isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
   if (f==='sess') comp.sess = isFinite(v) ? Math.max(0, Math.min(50, Math.round(v))) : 0;
   if (f==='zile') comp.zile = isFinite(v) ? Math.max(1, Math.min(365, Math.round(v))) : 1;
+  compSalveaza();
   renderComp();
 }, true);
 
@@ -3203,6 +3341,7 @@ document.addEventListener('change', function(e){
   if (el && el.dataset && el.dataset.day && el.dataset.field){
     const k=el.dataset.day, f=el.dataset.field, v=String(el.value||'').slice(0,300);
     if (((S.dayMeta[k]||{})[f] || '') === v) return;          // nothing actually changed
+    try{ const poza=fotografie(); if (poza) pastreazaPas('noti\u021b\u0103 pe zi', poza); }catch(err){}
     S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), [f]: v}});
     saveLog();
     renderDays(); return;
@@ -3213,7 +3352,9 @@ document.addEventListener('change', function(e){
   try{
     const v=xf(el.value); if (v===null){ renderSettings(); return note('Valoare invalid\u0103'); }
     if (S.settings[key] === v) return;                        // nothing actually changed
+    const poza = fotografie();
     S.settings[key]=v; dbSet('settings',S.settings);
+    try{ if (poza) pastreazaPas('setare schimbat\u0103', poza); }catch(err){}
     try{ noteazaSchimbarile(inainte); }catch(err){}
     render();
   }catch(err){ showErr('setare '+el.id, err&&err.message||String(err)); }
@@ -3243,7 +3384,7 @@ function render_(){
   const r=calc();
   renderHeader(r); renderBanner(r); renderNext(r);
   renderTarget(r); renderTrades(r); renderDayGoal();
-  renderJournal(); renderDays(); renderSettings(); renderSync();
+  renderJournal(); renderDays(); renderSettings(); renderSync(); randUndo();
   const act=document.querySelector('nav button.on');
   if (act && act.dataset.t==='a') renderAnalysis();
 }
@@ -3478,9 +3619,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 63 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 64 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 63 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 64 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
