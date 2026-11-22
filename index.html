@@ -212,14 +212,6 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
 .dg-bar>i.gata{background:var(--win-v)}
 .dg-bar>i.minus{background:var(--loss-v)}
 .dg-sub{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:11.5px;color:var(--dim)}
-.undobar{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:calc(78px + env(safe-area-inset-bottom));
-  z-index:60;display:flex;align-items:center;gap:9px;max-width:min(560px,calc(100vw - 24px));
-  background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:9px 11px;
-  box-shadow:0 10px 30px var(--shadow);transition:transform .25s ease;pointer-events:none}
-.undobar.on{transform:translateX(-50%) translateY(0);pointer-events:auto}
-.undobar .ub-t{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.undobar .ub-t b{color:var(--txt)}
-.undobar .btn{padding:7px 12px;font-size:12.5px;flex:0 0 auto}
 .ck-row{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;align-items:baseline}
 .ck-row>span:first-child{color:var(--dim);flex:0 0 auto}
 .ck-more{margin-top:5px;font-size:11.5px;color:var(--faint)}
@@ -850,7 +842,6 @@ svg{display:block;width:100%;height:auto}
 </section>
 
 </div>
-<div class="undobar" id="undoBar"></div>
 <div class="toast" id="toast"></div>
 <script>
 /* ============================================================
@@ -2248,16 +2239,14 @@ function pastreazaPas(eticheta, poza){
   while (pasiInapoi.length > MAX_PASI) pasiInapoi.shift();
   pasiInainte = [];                            // orice acțiune nouă rupe firul spre „înainte"
   randUndo();
-  aratsBara('<b>'+eticheta+'</b> · greșit?', false);
 }
 function anuleaza(){
   const p = pasiInapoi.pop();
   if (!p){ note('Nu mai e nimic de anulat.'); return; }
   const acum = fotografie();
   if (acum) pasiInainte.push({ t:Date.now(), eticheta:p.eticheta, stare:acum });
-  try{ aplicaFotografie(p.stare); note('Am anulat: '+p.eticheta);
-       aratsBara('Am anulat <b>'+p.eticheta+'</b>', true); }
-  catch(e){ note('N-am putut anula.'); ascundeBara(); }
+  try{ aplicaFotografie(p.stare); note('Am anulat: '+p.eticheta); }
+  catch(e){ note('N-am putut anula.'); }
   randUndo();
 }
 function refa(){
@@ -2265,9 +2254,8 @@ function refa(){
   if (!p){ note('Nu mai e nimic de refăcut.'); return; }
   const acum = fotografie();
   if (acum) pasiInapoi.push({ t:Date.now(), eticheta:p.eticheta, stare:acum });
-  try{ aplicaFotografie(p.stare); note('Am refăcut: '+p.eticheta);
-       aratsBara('Am pus la loc <b>'+p.eticheta+'</b>', false); }
-  catch(e){ note('N-am putut reface.'); ascundeBara(); }
+  try{ aplicaFotografie(p.stare); note('Am refăcut: '+p.eticheta); }
+  catch(e){ note('N-am putut reface.'); }
   randUndo();
 }
 
@@ -2282,17 +2270,6 @@ const ACT_NUME = {
   istGol:'istoric setări golit', alin:'aliniere cu brokerul', fix:'reparație',
   import:'import de date', wipe:'ștergere totală', recon:'potrivire salvată'
 };
-let baraTimer=null;
-function aratsBara(text, cuInainte){
-  const bara=$('#undoBar'); if (!bara) return;
-  bara.innerHTML = `<span class="ub-t">${text}</span>`+
-    `<button class="btn btn-g" data-act="${cuInainte?'inainteAct':'inapoi'}">${cuInainte?'Înainte':'Înapoi'}</button>`;
-  bara.classList.add('on');
-  clearTimeout(baraTimer);
-  baraTimer = setTimeout(()=>bara.classList.remove('on'), 9000);
-}
-function ascundeBara(){ const b=$('#undoBar'); if (b){ clearTimeout(baraTimer); b.classList.remove('on'); } }
-
 function randUndo(){
   const box=$('#undoBox');
   if (box){
@@ -3619,9 +3596,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 64 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 65 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 64 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 65 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
