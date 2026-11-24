@@ -518,7 +518,6 @@ svg{display:block;width:100%;height:auto}
       <div class="kv"><div class="k">Pierderi max.</div><div class="v mono" id="tMaxL">—</div></div>
       <div class="kv"><div class="k">P&amp;L azi</div><div class="v mono" id="tPlAzi">—</div></div>
       <div class="kv"><div class="k">Randament azi</div><div class="v mono" id="tRand">—</div></div>
-      <div class="kv"><div class="k">Winrate 24h</div><div class="v mono" id="tWr24">—</div></div>
     </div>
   </div>
 
@@ -1121,28 +1120,6 @@ function wrCls(w, l, payout){
   return r > prag ? 'up' : (r < prag ? 'down' : '');
 }
 
-/* Ultimele 24 de ore, tranzacție cu tranzacție — inclusiv sesiunea deschisă. */
-function wr24(){
-  const prag = Date.now() - 24*3600*1000;
-  let w=0, l=0;
-  for (const s of S.sessions){
-    const tr = s.trades||[];
-    if (tr.length){
-      for (const t of tr){
-        const ts = isFinite(t.ts) ? t.ts : s.date;
-        if (ts >= prag) (t.result==='W' ? w++ : l++);
-      }
-    } else if (s.date >= prag){            // sesiune importată, fără tranzacții salvate
-      w += Number(s.wins)||0; l += Number(s.losses)||0;
-    }
-  }
-  for (const t of (cur().trades||[])){     // ce e pe masă acum
-    const ts = isFinite(t.ts) ? t.ts : Date.now();
-    if (ts >= prag) (t.result==='W' ? w++ : l++);
-  }
-  return { w, l, n:w+l };
-}
-
 function days(){
   const map=new Map();
   for (const s of S.sessions){
@@ -1481,11 +1458,6 @@ function renderTarget(r){
   const z=ziuaAzi();
   $('#tPlAzi').innerHTML = `<span class="${cls(z.pl)}">${sgn(z.pl)}</span>`;
   $('#tRand').innerHTML  = `<span class="${cls(z.pct)}">${z.pct>=0?'+':''}${pct(z.pct)}</span>`;
-  const r24 = wr24();
-  $('#tWr24').innerHTML  = r24.n
-    ? `<span class="${wrCls(r24.w,r24.l)}">${wrText(r24.w,r24.l)}</span>`+
-      `<span class="sub">${r24.w} din ${r24.n} tranzacții</span>`
-    : '<span class="muted">—</span>';
 }
 
 function renderTrades(r){
@@ -3666,9 +3638,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 68 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 69 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 68 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 69 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
