@@ -280,6 +280,9 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
   .cal .cell{aspect-ratio:auto;min-height:52px}
 }
 .cal .cell .n{font-size:10px;color:var(--faint);font-weight:700;line-height:1}
+svg.curba{width:100%;height:170px;display:block;overflow:visible}
+@media (min-width:600px){ svg.curba{height:220px} }
+@media (min-width:1100px){ svg.curba{height:280px} }
 .cal .cell .wr{font-size:9.5px;font-weight:700;line-height:1.15;letter-spacing:.2px;text-align:right;font-family:var(--mono)}
 .cal .cell .wr.up{color:var(--win)} .cal .cell .wr.down{color:var(--loss)} .cal .cell .wr.muted{color:var(--dim)}
 @media (min-width:600px){ .cal .cell .wr{font-size:11px} }
@@ -545,6 +548,12 @@ svg{display:block;width:100%;height:auto}
     </div>
     <div class="cal" id="calGrid"></div>
     <div class="caldet" id="calDet"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="display:flex;justify-content:space-between;align-items:baseline">
+      <span>Curba zilei</span><span class="muted sm" id="curbaTitlu">—</span></h2>
+    <div id="curbaBox"></div>
   </div>
 
   <div id="todayBox"></div>
@@ -1040,8 +1049,6 @@ function normSettings(v){
 let S = { settings:{...DEF}, current:null, sessions:[], dayMeta:{} };
 
 /* ---------- days ---------- */
-const STRATEGIES = ['Fast Five','3 Bar/Offset','Alta'];
-const TIMEFRAMES = ['5s','15s','30s','1m','2m','5m'];
 const dayKey = ts => { const d=new Date(ts);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const todayKey = () => dayKey(Date.now());
@@ -1586,21 +1593,127 @@ function renderDaily(r){
 /* ============================================================
    RENDER — day
    ============================================================ */
+/* ============================================================
+   CURBA ZILEI
+   Cum a mers balanța de la prima tranzacție a zilei până la ultima.
+   Pune punct la fiecare tranzacție dacă ziua le are salvate; pentru
+   zilele importate, care au doar totaluri pe sesiune, pune punct la
+   finalul fiecărei sesiuni și o spune sub grafic.
+   ============================================================ */
+function puncteZi(d, vie){
+  /* `vie` e sesiunea deschisă acum: pentru ziua de azi curba trebuie să ajungă
+     până la ultima tranzacție pusă, nu doar până la ultima sesiune închisă. */
+  const inchise = (d && d.sessions) ? d.sessions : [];
+  const deschise = (vie && (vie.trades||[]).length) ? vie.trades.filter(t=>isFinite(t.ret)) : [];
+  if (!inchise.length && !deschise.length) return null;
+  if (!inchise.length){
+    let bal=round2(vie.startBalance); const pct=[{t:(deschise[0].ts||Date.now())-1, v:bal, hotar:true}];
+    for (const t of deschise){ bal=round2(bal+t.ret); pct.push({t:t.ts||Date.now(), v:bal, hotar:false}); }
+    pct[pct.length-1].hotar = true;
+    return { pct, exact:true, start:pct[0].v, end:bal, inCurs:true };
+  }
+  const ses=[...inchise].sort((a,b)=>a.date-b.date);
+  const pct=[]; let exact=true, bal=ses[0].start;
+  pct.push({ t:ses[0].date, v:bal, hotar:true });
+  for (const s of ses){
+    const tr=(s.trades||[]).filter(t=>isFinite(t.ret));
+    if (tr.length && tr.length===(s.trades||[]).length){
+      const cuTs=tr.every(t=>isFinite(t.ts));
+      tr.slice().sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach((t,i)=>{
+        bal = round2(bal + t.ret);
+        pct.push({ t: cuTs ? t.ts : s.date, v:bal, hotar:false });
+      });
+      bal = round2(s.end);                 // finalul salvat e adevărul
+      pct[pct.length-1].v = bal;
+      pct[pct.length-1].hotar = true;
+    } else {
+      exact=false; bal=round2(s.end);
+      pct.push({ t:s.date, v:bal, hotar:true });
+    }
+  }
+  let inCurs=false;
+  if (deschise.length){
+    inCurs=true;
+    bal = round2(vie.startBalance);
+    for (const t of deschise){ bal=round2(bal+t.ret); pct.push({ t:t.ts||Date.now(), v:bal, hotar:false }); }
+    pct[pct.length-1].hotar = true;
+  }
+  return { pct, exact, start:ses[0].start, end:bal, inCurs };
+}
+
+function renderCurba(){
+  const gazda=$('#curbaBox'); if (!gazda) return;
+  const toate=days(), k = (calSel && toate.some(d=>d.key===calSel)) ? calSel : todayKey();
+  const d = toate.find(x=>x.key===k);
+  const azi = k===todayKey();
+  const vie = azi ? cur() : null;
+  const titlu=$('#curbaTitlu');
+  if (titlu) titlu.textContent = (d || (vie && (vie.trades||[]).length)) ? dayLabel(k) : '—';
+
+  const dat = puncteZi(d, vie);
+  if (!dat || dat.pct.length < 2){
+    gazda.innerHTML = `<div class="empty">${d ? 'Ziua asta are o singură înregistrare — nu e nimic de desenat încă.'
+      : 'Nicio sesiune în ziua asta. Apasă o zi colorată din calendar.'}</div>`;
+    return;
+  }
+
+  const P=dat.pct, W=1000, H=260, mS=10, mJ=26, mSt=6, mDr=6;
+  const vs=P.map(p=>p.v), vMin=Math.min(...vs), vMax=Math.max(...vs);
+  const baza=dat.start;
+  /* lăsăm linia de pornire mereu în cadru, altfel nu se vede de unde ai plecat */
+  let lo=Math.min(vMin,baza), hi=Math.max(vMax,baza);
+  const marja=(hi-lo)*0.12 || Math.max(0.02, Math.abs(baza)*0.002);
+  lo-=marja; hi+=marja;
+  /* Pe axa orizontală punem tranzacțiile una după alta, la distanță egală, nu
+     la ora lor. Altfel cele 5 tranzacții dintr-o sesiune, puse la un minut una
+     de alta, se strâng într-o dungă, iar pauza de două ore dintre sesiuni ocupă
+     tot graficul. Orele scrise dedesubt spun între ce ceasuri s-a întâmplat. */
+  const X = i => mSt + ((W-mSt-mDr) * (P.length>1 ? i/(P.length-1) : 0.5));
+  const Y = v => mS + (H-mS-mJ) * (1 - (v-lo)/(hi-lo));
+
+  const linie = P.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join('');
+  const yBaza = Y(baza);
+  const aria = `${linie}L${X(P.length-1).toFixed(1)},${yBaza.toFixed(1)}L${X(0).toFixed(1)},${yBaza.toFixed(1)}Z`;
+  const urcat = dat.end >= dat.start;
+  const culoare = urcat ? 'var(--win)' : 'var(--loss)';
+
+  const hotare = P.map((p,i)=> p.hotar && i ? {i,p} : null).filter(Boolean);
+  const bule = (hotare.length<=24 ? hotare : [hotare[hotare.length-1]])
+    .map(({i,p})=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4"
+         fill="var(--panel)" stroke="${culoare}" stroke-width="2.5"/>`).join('');
+
+  const et = (v,i,anc)=>`<text x="${X(i).toFixed(1)}" y="${H-8}" font-size="17"
+      fill="var(--faint)" text-anchor="${anc}">${hhmm(P[i].t)}</text>`;
+
+  gazda.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="curba" role="img"
+         aria-label="Evoluția balanței în ziua ${dayLabel(k)}">
+      <path d="${aria}" fill="${culoare}" opacity=".13"/>
+      <line x1="${mSt}" y1="${yBaza.toFixed(1)}" x2="${W-mDr}" y2="${yBaza.toFixed(1)}"
+            stroke="var(--line)" stroke-width="2" stroke-dasharray="7 7"/>
+      <path d="${linie}" fill="none" stroke="${culoare}" stroke-width="3"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      ${bule}
+      ${et(0,0,'start')}${et(0,P.length-1,'end')}
+    </svg>
+    <div class="grid" style="margin-top:10px">
+      <div class="kv"><div class="k">Start → final</div>
+        <div class="v mono sm">${money(dat.start)} → ${money(dat.end)}</div></div>
+      <div class="kv"><div class="k">Cât a urcat / coborât</div>
+        <div class="v mono sm"><span class="up">${money(vMax)}</span> / <span class="down">${money(vMin)}</span></div></div>
+    </div>
+    <div class="note">${dat.exact
+      ? 'Un punct la fiecare tranzacție. Cerculețele sunt finalurile de sesiune.'
+      : 'Ziua asta n-are tranzacțiile salvate una câte una, așa că punctele sunt finalurile de sesiune.'}${
+      dat.inCurs ? ' Coada curbei e sesiunea deschisă acum.' : ''}</div>`;
+}
+
 function renderToday(){
   const k=todayKey(), all=days(), d=all.find(x=>x.key===k);
   const meta = S.dayMeta[k] || {};
-  const sel = (field, opts, val, ph) =>
-    `<select data-day="${k}" data-field="${field}">`+
-    `<option value=""${val?'':' selected'}>${ph}</option>`+
-    opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')+`</select>`;
-  const fields = `<div class="daysel">
-      <div><label>Strategie</label>${sel('strategy',STRATEGIES,meta.strategy||'','—')}</div>
-      <div><label>Timeframe</label>${sel('tf',TIMEFRAMES,meta.tf||'','—')}</div>
-      <div><label>Expirare</label>${sel('expiry',TIMEFRAMES,meta.expiry||'','—')}</div>
-    </div>`;
   if (!d){
     $('#todayBox').innerHTML = `<div class="card"><h2>Azi · ${dayLabel(k)}</h2>
-      <div class="empty" style="padding:14px 6px">Nicio sesiune înregistrată astăzi.</div>${fields}</div>`;
+      <div class="empty" style="padding:14px 6px">Nicio sesiune înregistrată astăzi.</div></div>`;
     return;
   }
   const tag = d.closed ? `<span class="closed-tag">ÎNCHISĂ</span>` : `<span class="open-tag">ÎN CURS</span>`;
@@ -1614,7 +1727,6 @@ function renderToday(){
       <div class="kv"><div class="k">Sesiuni · tranzacții</div><div class="v mono sm">${d.nSessions} · ${d.wins+d.losses}</div></div>
       <div class="kv"><div class="k">Winrate azi</div><div class="v mono"><span class="${wrCls(d.wins,d.losses,d.payout)}">${wrText(d.wins,d.losses)}</span><span class="sub">${d.wins} din ${d.wins+d.losses} tranzacții</span></div></div>
     </div>
-    ${fields}
     ${d.closed
       ? `<button class="btn btn-g" data-act="reopenDay" style="width:100%">Redeschide ziua</button>`
       : `<button class="btn btn-a" data-act="endDay" style="width:100%">Încheie ziua (${sgn(d.pl)})</button>`}
@@ -1664,7 +1776,7 @@ function renderCalendar(){
          <b>${dayLabel(sel.key)} · ${sgn(sel.pl)} (${sel.pct>=0?'+':''}${pct(sel.pct)})</b>
          ${plural(sel.nSessions,'sesiune','sesiuni')} · ${plural(sel.wins,'câștig','câștiguri')}, ${plural(sel.losses,'pierdere','pierderi')} ·
          winrate <b>${wrText(sel.wins,sel.losses)}</b> ·
-         ${money(sel.start)} → ${money(sel.end)}${sel.meta.strategy?' · '+sel.meta.strategy:''}${sel.meta.tf?' · '+sel.meta.tf:''}
+         ${money(sel.start)} → ${money(sel.end)}
          </span></div>`
     : (monthDays
         ? `<div class="note" style="margin:0">Luna aceasta: <b>${sgn(monthPl)}</b> în ${plural(monthDays,'zi','zile')}. Apasă o zi pentru detalii.</div>`
@@ -1673,6 +1785,7 @@ function renderCalendar(){
 
 function renderDays(){
   renderCalendar();
+  renderCurba();
   renderToday();
   const all=days();
   if (!all.length){
@@ -1686,7 +1799,7 @@ function renderDays(){
   $('#dWl').textContent=win+' / '+(all.length-win);
   $('#dN').textContent=all.length;
 
-  let h=`<thead><tr><th>Zi</th><th>P&amp;L</th><th>%</th><th>Winrate</th><th>Final</th><th>Ses.</th><th>Strat.</th><th>TF</th><th>Start</th><th></th></tr></thead><tbody>`;
+  let h=`<thead><tr><th>Zi</th><th>P&amp;L</th><th>%</th><th>Winrate</th><th>Final</th><th>Ses.</th><th>Start</th><th></th></tr></thead><tbody>`;
   const n=all.length;
   all.forEach((d,i)=>{
     h+=`<tr><td class="muted">${dayShort(d.key)}</td>
@@ -1695,8 +1808,6 @@ function renderDays(){
       <td class="mono"><span class="${wrCls(d.wins,d.losses,d.payout)}">${wrText(d.wins,d.losses)}</span><span class="muted sm"> ${d.wins}/${d.wins+d.losses}</span></td>
       <td class="mono">${money(d.end)}</td>
       <td class="mono muted">${d.nSessions}</td>
-      <td class="muted">${d.meta.strategy||'—'}</td>
-      <td class="muted">${d.meta.tf||'—'}</td>
       <td class="mono muted">${money(d.start)}</td>
       <td><button class="del${delArm==='day:'+d.key?' arm':''}" data-act="delDay" data-k="${d.key}">${delArm==='day:'+d.key?'sigur?':'✕'}</button></td></tr>`;
   });
@@ -3271,7 +3382,7 @@ const ACTS = {
   anPrev:()=>{ anMonth = shiftMonth(anMonth||thisMonth(), -1); renderAnalysis(); },
   anNext:()=>{ anMonth = shiftMonth(anMonth||thisMonth(),  1); renderAnalysis(); },
   pickMonth:(el)=>{ anMonth = el.dataset.m; renderAnalysis(); window.scrollTo(0,0); },
-  pickDay:(el)=>{ calSel = (calSel===el.dataset.k) ? null : el.dataset.k; renderCalendar(); },
+  pickDay:(el)=>{ calSel = (calSel===el.dataset.k) ? null : el.dataset.k; renderCalendar(); renderCurba(); },
   calPrev:()=>{ const [Y,M]=calMonth.split('-').map(Number); const d=new Date(Y,M-2,1);
     calMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); calSel=null; renderCalendar(); },
   calNext:()=>{ const [Y,M]=calMonth.split('-').map(Number); const d=new Date(Y,M,1);
@@ -3357,14 +3468,6 @@ document.addEventListener('input', function(e){
 
 document.addEventListener('change', function(e){
   const el=e.target;
-  if (el && el.dataset && el.dataset.day && el.dataset.field){
-    const k=el.dataset.day, f=el.dataset.field, v=String(el.value||'').slice(0,300);
-    if (((S.dayMeta[k]||{})[f] || '') === v) return;          // nothing actually changed
-    try{ const poza=fotografie(); if (poza) pastreazaPas('noti\u021b\u0103 pe zi', poza); }catch(err){}
-    S.dayMeta = normDayMeta({...S.dayMeta, [k]: {...(S.dayMeta[k]||{}), [f]: v}});
-    saveLog();
-    renderDays(); return;
-  }
   if (!el||!el.id||!SETTINGS_MAP[el.id]) return;
   const [key,xf]=SETTINGS_MAP[el.id];
   const inainte = instantaneuSetari();
@@ -3638,9 +3741,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 69 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 70 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 69 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 70 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
