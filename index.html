@@ -142,6 +142,7 @@ section.on{display:block}
 .kv .k{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .kv .v{font-size:17px;font-weight:700;margin-top:1px}
 .kv .v.sm{font-size:14.5px}
+.kv .v .sub{display:block;font-weight:600;font-size:12.5px;color:var(--dim);margin-top:1px}
 .kv .v .eur{display:block;font-weight:600;font-size:12.5px;color:var(--dim);margin-top:1px}
 td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-top:1px}
 
@@ -279,6 +280,11 @@ td .eur{display:block;font-size:11.5px;font-weight:600;color:var(--dim);margin-t
   .cal .cell{aspect-ratio:auto;min-height:52px}
 }
 .cal .cell .n{font-size:10px;color:var(--faint);font-weight:700;line-height:1}
+.cal .cell .wr{font-size:9.5px;font-weight:700;line-height:1.15;letter-spacing:.2px;text-align:right;font-family:var(--mono)}
+.cal .cell .wr.up{color:var(--win)} .cal .cell .wr.down{color:var(--loss)} .cal .cell .wr.muted{color:var(--dim)}
+@media (min-width:600px){ .cal .cell .wr{font-size:11px} }
+@media (min-width:900px){ .cal .cell .wr{font-size:12.5px} }
+@media (min-width:1400px){ .cal .cell .wr{font-size:14px} }
 .cal .cell .v{font-weight:700;font-size:11px;font-family:var(--mono);line-height:1.15;text-align:right;word-break:break-all}
 .cal .cell .s{font-size:9px;color:var(--faint);text-align:right;line-height:1.1}
 /* căsuțele cresc odată cu ecranul, deci și cifrele din ele */
@@ -512,6 +518,7 @@ svg{display:block;width:100%;height:auto}
       <div class="kv"><div class="k">Pierderi max.</div><div class="v mono" id="tMaxL">—</div></div>
       <div class="kv"><div class="k">P&amp;L azi</div><div class="v mono" id="tPlAzi">—</div></div>
       <div class="kv"><div class="k">Randament azi</div><div class="v mono" id="tRand">—</div></div>
+      <div class="kv"><div class="k">Winrate 24h</div><div class="v mono" id="tWr24">—</div></div>
     </div>
   </div>
 
@@ -1098,6 +1105,44 @@ function normDayMeta(v){
   return o;
 }
 /* Sessions grouped into days, newest first. */
+/* Winrate-ul se numără pe TRANZACȚII, nu pe sesiuni: câte tranzacții au ieșit
+   pe câștig din toate cele puse. O sesiune de 5 câștiguri și 2 pierderi dă
+   71%, nu „o sesiune câștigată". */
+function wrRata(w, l){ const n=(w|0)+(l|0); return n ? w/n : null; }
+function wrText(w, l){ const r=wrRata(w,l); return r===null ? '—' : pct(r,1); }
+function wrScurt(w, l){ const r=wrRata(w,l); return r===null ? '' : Math.round(r*100)+'%'; }
+/* Verde peste pragul de rentabilitate, roșu sub el: la payout 92%
+   ai nevoie de 52.1% ca să ieși pe zero. */
+function wrCls(w, l, payout){
+  const r=wrRata(w,l); if (r===null) return 'muted';
+  const p = isFinite(Number(payout)) && Number(payout)>0 ? Number(payout)
+          : (S.settings.payout||0.92);
+  const prag = 1/(1+p);
+  return r > prag ? 'up' : (r < prag ? 'down' : '');
+}
+
+/* Ultimele 24 de ore, tranzacție cu tranzacție — inclusiv sesiunea deschisă. */
+function wr24(){
+  const prag = Date.now() - 24*3600*1000;
+  let w=0, l=0;
+  for (const s of S.sessions){
+    const tr = s.trades||[];
+    if (tr.length){
+      for (const t of tr){
+        const ts = isFinite(t.ts) ? t.ts : s.date;
+        if (ts >= prag) (t.result==='W' ? w++ : l++);
+      }
+    } else if (s.date >= prag){            // sesiune importată, fără tranzacții salvate
+      w += Number(s.wins)||0; l += Number(s.losses)||0;
+    }
+  }
+  for (const t of (cur().trades||[])){     // ce e pe masă acum
+    const ts = isFinite(t.ts) ? t.ts : Date.now();
+    if (ts >= prag) (t.result==='W' ? w++ : l++);
+  }
+  return { w, l, n:w+l };
+}
+
 function days(){
   const map=new Map();
   for (const s of S.sessions){
@@ -1120,6 +1165,8 @@ function days(){
       pl: ss[ss.length-1].end - ss[0].start,
       pct: ss[0].start ? (ss[ss.length-1].end - ss[0].start)/ss[0].start : 0,
       wins:w, losses:l, nSessions:ss.length,
+      payout: (()=>{ for (let i=ss.length-1;i>=0;i--){ const p=Number(ss[i].payout);
+                       if (isFinite(p) && p>0) return p; } return S.settings.payout; })(),
       firstTs: ss[0].date, lastTs: ss[ss.length-1].date,
       closed: !!meta.closed });
   }
@@ -1434,6 +1481,11 @@ function renderTarget(r){
   const z=ziuaAzi();
   $('#tPlAzi').innerHTML = `<span class="${cls(z.pl)}">${sgn(z.pl)}</span>`;
   $('#tRand').innerHTML  = `<span class="${cls(z.pct)}">${z.pct>=0?'+':''}${pct(z.pct)}</span>`;
+  const r24 = wr24();
+  $('#tWr24').innerHTML  = r24.n
+    ? `<span class="${wrCls(r24.w,r24.l)}">${wrText(r24.w,r24.l)}</span>`+
+      `<span class="sub">${r24.w} din ${r24.n} tranzacții</span>`
+    : '<span class="muted">—</span>';
 }
 
 function renderTrades(r){
@@ -1588,6 +1640,7 @@ function renderToday(){
       <div class="kv"><div class="k">Randament</div><div class="v mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</div></div>
       <div class="kv"><div class="k">Start → acum</div><div class="v mono sm">${money(d.start)} → ${money(d.end)}</div></div>
       <div class="kv"><div class="k">Sesiuni · tranzacții</div><div class="v mono sm">${d.nSessions} · ${d.wins+d.losses}</div></div>
+      <div class="kv"><div class="k">Winrate azi</div><div class="v mono"><span class="${wrCls(d.wins,d.losses,d.payout)}">${wrText(d.wins,d.losses)}</span><span class="sub">${d.wins} din ${d.wins+d.losses} tranzacții</span></div></div>
     </div>
     ${fields}
     ${d.closed
@@ -1626,7 +1679,8 @@ function renderCalendar(){
     h += `<div class="${klass.join(' ')}"${rec?` data-act="pickDay" data-k="${k}"`:''}>`+
          `<div class="n">${d}</div>`+
          (rec ? `<div><div class="v">${rec.pl>0?'+':''}${Math.abs(rec.pl)>=100?Math.round(rec.pl):rec.pl.toFixed(1)}</div>`+
-                `<div class="s">${rec.nSessions}s · ${rec.wins}/${rec.losses}</div></div>` : '<div></div>')+
+                `<div class="s">${rec.nSessions}s · ${rec.wins}/${rec.losses}</div>`+
+                `<div class="wr ${wrCls(rec.wins,rec.losses,rec.payout)}">${wrScurt(rec.wins,rec.losses)}</div></div>` : '<div></div>')+
          `</div>`;
   }
   $('#calGrid').innerHTML = h;
@@ -1637,6 +1691,7 @@ function renderCalendar(){
          <span class="ic">${sel.pl>0?'&#9650;':(sel.pl<0?'&#9660;':'&#8226;')}</span><span>
          <b>${dayLabel(sel.key)} · ${sgn(sel.pl)} (${sel.pct>=0?'+':''}${pct(sel.pct)})</b>
          ${plural(sel.nSessions,'sesiune','sesiuni')} · ${plural(sel.wins,'câștig','câștiguri')}, ${plural(sel.losses,'pierdere','pierderi')} ·
+         winrate <b>${wrText(sel.wins,sel.losses)}</b> ·
          ${money(sel.start)} → ${money(sel.end)}${sel.meta.strategy?' · '+sel.meta.strategy:''}${sel.meta.tf?' · '+sel.meta.tf:''}
          </span></div>`
     : (monthDays
@@ -1659,12 +1714,13 @@ function renderDays(){
   $('#dWl').textContent=win+' / '+(all.length-win);
   $('#dN').textContent=all.length;
 
-  let h=`<thead><tr><th>Zi</th><th>P&amp;L</th><th>%</th><th>Final</th><th>Ses.</th><th>Strat.</th><th>TF</th><th>Start</th><th></th></tr></thead><tbody>`;
+  let h=`<thead><tr><th>Zi</th><th>P&amp;L</th><th>%</th><th>Winrate</th><th>Final</th><th>Ses.</th><th>Strat.</th><th>TF</th><th>Start</th><th></th></tr></thead><tbody>`;
   const n=all.length;
   all.forEach((d,i)=>{
     h+=`<tr><td class="muted">${dayShort(d.key)}</td>
       <td class="mono ${cls(d.pl)}">${sgn(d.pl)}</td>
       <td class="mono ${cls(d.pct)}">${d.pct>=0?'+':''}${pct(d.pct)}</td>
+      <td class="mono"><span class="${wrCls(d.wins,d.losses,d.payout)}">${wrText(d.wins,d.losses)}</span><span class="muted sm"> ${d.wins}/${d.wins+d.losses}</span></td>
       <td class="mono">${money(d.end)}</td>
       <td class="mono muted">${d.nSessions}</td>
       <td class="muted">${d.meta.strategy||'—'}</td>
@@ -2218,6 +2274,8 @@ let pasiInapoi = [], pasiInainte = [];
 
 function fotografie(){
   try{
+    cur();   /* S.current se naste abia la primul render; fara asta, prima apăsare
+                de după o ștergere totală lăsa un pas de „înapoi" fantomă. */
     return JSON.stringify({ sessions:S.sessions, settings:S.settings,
                             current:S.current, dayMeta:S.dayMeta });
   }catch(e){ return null; }
@@ -3313,10 +3371,14 @@ document.addEventListener('input', function(e){
   if (!el || !el.dataset || el.dataset.act!=='cmIn') return;
   const f=el.dataset.f, v=parseBani(el.value);
   compInit();
+  const inainteCap = comp.cap;
   if (f==='cap')  comp.cap  = (isFinite(v)&&v>0) ? v : 0;
   if (f==='gain') comp.gain = isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
   if (f==='sess') comp.sess = isFinite(v) ? Math.max(0, Math.min(50, Math.round(v))) : 0;
   if (f==='zile') comp.zile = isFinite(v) ? Math.max(1, Math.min(365, Math.round(v))) : 1;
+  /* Un capital de 0 sau o valoare care nu e număr lăsa tot tabelul pe zero și,
+     mai rău, se salva — ca la redeschidere să apară altceva. Păstrăm ce era. */
+  if (f==='cap' && !(isFinite(comp.cap) && comp.cap > 0)) comp.cap = inainteCap;
   compSalveaza();
   renderComp();
 }, true);
@@ -3604,9 +3666,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 66 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 68 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 66 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 68 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
