@@ -933,10 +933,17 @@ function replay(cfg){
   const R = 1+payout, M = buildMatrix(N,K,R), maxL = 1+N-K;
   const hardStop = slMode === 'stop' && slPct > 0;
   const stopAt = B0*(1-slPct);
-  let bal=B0, t=0, j=0, losses=0, status='open';
+  let bal=B0, t=0, j=0, losses=0, status='open', peste=0;
   const rows=[];
-  for (let i=0;i<N;i++){
-    const f = stakeFrac(M,t,j,R);
+  /* Trecem prin TOATE tranzacțiile înregistrate, nu doar prin primele N.
+     Banii puși la broker s-au mișcat cu adevărat; dacă schimbi N sau K după
+     ce ai pus tranzacții, scara mizelor sugerate se schimbă, dar tranzacțiile
+     deja puse rămân fapte și trebuie să se vadă în balanță. Altfel balanța
+     sărea singură, fără ca vreo tranzacție să se schimbe. */
+  const total = Math.max(N, trades.length);
+  for (let i=0;i<total;i++){
+    const inGrila = t < N && j < K;
+    const f = inGrila ? stakeFrac(M,t,j,R) : 0;
     const cap = round2(bal);                       // nu poți paria mai mult decât ai
     let sug = round2(f*bal);
     if (sug < 0.01) sug = Math.min(0.01, cap);     // cel mai mic pas al brokerului
@@ -944,8 +951,9 @@ function replay(cfg){
     const rec = trades[i];
     const row = { no:i+1, suggested:sug, pctOfBal:(bal>0 ? sug/bal : f),
                   allIn: f>=0.999 || sug>=cap,
-                  before:bal, required:M.get(t,j), goal:bal*M.get(t,j) };
-    if (!rec){ rows.push(row); break; }
+                  before:bal, required:inGrila?M.get(t,j):null,
+                  goal:inGrila?bal*M.get(t,j):null };
+    if (!rec){ if (status==='open') rows.push(row); break; }
     row.result = rec.result;
     row.stake  = rec.stake != null ? rec.stake : sug;
     if (rec.result === 'W'){
@@ -954,14 +962,20 @@ function replay(cfg){
     } else {
       row.ret = -row.stake; bal -= row.stake; losses++;
     }
+    if (status !== 'open') { row.peste = true; peste++; }
     row.after = bal; rows.push(row); t++;
-    if (bal <= 1e-9){ status='liquidated'; break; }
-    if (j >= K){ status='target'; break; }
-    if (hardStop && bal <= stopAt+1e-9){ status='stopped'; break; }
-    if (losses >= maxL){ status='liquidated'; break; }
-    if (t >= N){ status='exhausted'; break; }
+    let term = null;
+    if (bal <= 1e-9)                      term='liquidated';
+    else if (j >= K)                      term='target';
+    else if (hardStop && bal <= stopAt+1e-9) term='stopped';
+    else if (losses >= maxL)              term='liquidated';
+    else if (t >= N)                      term='exhausted';
+    if (term){
+      if (status === 'open') status = term;        // păstrăm primul capăt atins
+      if (!trades[i+1]) break;                     // nu mai e nimic real de numărat
+    }
   }
-  return { rows, balance:bal, wins:j, losses, used:t, status,
+  return { rows, balance:bal, wins:j, losses, used:t, status, peste,
            stopAt, maxLosses:maxL, sessionGain:M.get(0,0)-1,
            goal:B0*M.get(0,0), pl:bal-B0, M };
 }
@@ -1402,6 +1416,12 @@ function renderBanner(r){
       <b>Sesiune încheiată fără țintă</b>${st.N} tranzacții, doar ${r.wins} din ${st.K} câștiguri. P/L ${sgn(r.pl)}.
       </span></div>`;
   }
+  if (r.peste) html += `<div class="banner b-warn"><span class="ic">&#9888;</span><span>
+      <b>${nr(r.peste,'tranzacție','tranzacții')} peste capătul sesiunii</b>
+      Sesiunea s-a încheiat mai devreme (${r.status==='target'?'ținta atinsă':r.status==='stopped'?'stop loss':'limita de pierderi'}),
+      dar în jurnal sunt tranzacții puse după acel punct. Se văd în balanță, pentru că banii chiar s-au mișcat.
+      De obicei asta apare după ce ai schimbat <b>Tranzacții</b> sau <b>Câștiguri necesare</b> cu o sesiune deschisă.
+      </span></div>`;
   if (done) html += `<button class="btn btn-a" id="bLog" data-act="log" style="width:100%;margin-bottom:12px">Înregistrează sesiunea în jurnal</button>`;
   box.innerHTML = html;
 }
@@ -3741,9 +3761,9 @@ function renderSync(){
 }
 
 try{
-  $('#hb').textContent = 'JS activ \u2713  build 70 \u00b7 PWA  \u00b7  apăsări: 0';
+  $('#hb').textContent = 'JS activ \u2713  build 71 \u00b7 PWA  \u00b7  apăsări: 0';
   let taps=0;
-  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 70 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
+  document.addEventListener('click', ()=>{ taps++; $('#hb').textContent='JS activ \u2713  build 71 \u00b7 PWA  \u00b7  apăsări: '+taps; }, true);
 }catch(e){}
 
 if ('serviceWorker' in navigator){
